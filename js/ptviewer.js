@@ -20,6 +20,34 @@ var ProteinViewer = function(width, height, DOMObj) {
 	);
 	this.camera = camera;
 	this.camera.position.z = 400;
+	this.cameraUp = new Vec3([0, 1, 0]);
+	this.cameraForward = new Vec3([0, 0, 1]);
+	this.cameraDist = 400;
+	// Update Camera
+	this.updateCamera = function() {
+		this.camera.position.x = this.cameraForward.x * this.cameraDist;
+		this.camera.position.y = this.cameraForward.y * this.cameraDist;
+		this.camera.position.z = this.cameraForward.z * this.cameraDist;
+		this.camera.lookAt(new THREE.Vector3(0, 0, 0));
+		this.camera.up = new THREE.Vector3(this.cameraUp.x, this.cameraUp.y, this.cameraUp.z);
+	}
+	// Camera Rotate
+	this.cameraRotateTo = function(rx, ry) {
+		var rMat = new Mat4().createRotationMatrix(0, rx).mulBefore(
+				new Mat4().createRotationMatrix(1, ry)
+			);
+		this.cameraForward = rMat.mulBeforeVec3(new Vec4([0, 0, 1])).getVec3();
+		this.cameraUp = rMat.mulBeforeVec3(new Vec4([0, 1, 0])).getVec3();
+		this.updateCamera();
+	}
+	this.cameraRotate = function(rx, ry) {
+		var rMat = new Mat4().createRotationMatrix(0, rx).mulBefore(
+				new Mat4().createRotationMatrix(1, ry)
+			);
+		this.cameraForward = rMat.mulBeforeVec3(this.cameraForward).getVec3();
+		this.cameraUp = rMat.mulBeforeVec3(this.cameraUp).getVec3();
+		this.updateCamera();
+	}
 
 	// Renderer
 	var renderer = new THREE.WebGLRenderer();
@@ -82,6 +110,31 @@ var ProteinViewer = function(width, height, DOMObj) {
 			this.protein[index].material = new THREE.MeshLambertMaterial( { color: newColor } );
 		}
 	}
+
+	// Move protein
+	this.moveProteinTo = function(index, x, y, z) {
+		this.protein[index].position.x = x;
+		this.protein[index].position.y = y;
+		this.protein[index].position.z = z;
+	}
+	this.moveProtein = function(index, dx, dy, dz) {
+		this.protein[index].position.x += dx;
+		this.protein[index].position.y += dy;
+		this.protein[index].position.z += dz;
+	}
+	
+	// Rotate protein
+	this.rotateProteinTo = function(index, x, y, z) {
+		this.protein[index].rotation.x = x;
+		this.protein[index].rotation.y = y;
+		this.protein[index].rotation.z = z;
+	}
+	this.rotateProtein = function(index, dx, dy, dz) {
+		this.protein[index].rotation.x += dx;
+		this.protein[index].rotation.y += dy;
+		this.protein[index].rotation.z += dz;
+	}
+	
 };
 
 // Vector 3
@@ -109,6 +162,14 @@ var Vec3 = function(data) {
 	this.dot = function(other) {
 		return this.x * other.x + this.y * other.y + this.z * other.z;
 	}
+
+	this.cross = function(other) {
+		return new Vec3([
+			this.y * other.z - this.z * other.y,
+			this.z * other.x - this.x * other.z,
+			this.x * other.y - this.y * other.x,
+		]);
+	}
 };
 
 // Vector 4
@@ -121,15 +182,23 @@ var Vec4 = function(data) {
 	this.clone = function() {
 		return new Vec4([this.x, this.y, this.z, this.w]);
 	}
+
+	this.dot = function(other) {
+		return this.x * other.x + this.y * other.y + this.z * other.z + this.w * other.w;
+	}
+
+	this.getVec3 = function() {
+		return new Vec3([this.x, this.y, this.z]);
+	}
 };
 
 // Matrix 4
 /**
 	data : [
-			m0, m4, m8, m12,
-			m1, m5, m9, m13,
-			m2, m6, m10, m14,
-			m3, m7, m11, m15	
+			m0, m1, m2, m3,
+			m4, m5, m6, m7,
+			m8, m9, m10, m11,
+			m12, m13, m14, m15	
 		]
 */
 var Mat4 = function(data) {
@@ -139,21 +208,21 @@ var Mat4 = function(data) {
 		return new Mat4(this.data);
 	}
 
-	this.row = function(row) {
+	this.col = function(col) {
 		return new Vec4([
-			data[row],
-			data[row + 4],
-			data[row + 8],
-			data[row + 12],
+			this.data[col],
+			this.data[col + 4],
+			this.data[col + 8],
+			this.data[col + 12],
 		]);
 	}
 
-	this.col = function(col) {
+	this.row = function(row) {
 		return new Vec4([
-			data[col * 4], 
-			data[col * 4 + 1], 
-			data[col * 4 + 2], 
-			data[col * 4 + 3]]
+			this.data[row * 4], 
+			this.data[row * 4 + 1], 
+			this.data[row * 4 + 2], 
+			this.data[row * 4 + 3]]
 		);
 	}
 
@@ -173,6 +242,86 @@ var Mat4 = function(data) {
 			other.row(1).dot(this.col(0)), other.row(1).dot(this.col(1)), other.row(1).dot(this.col(2)), other.row(1).dot(this.col(3)),
 			other.row(2).dot(this.col(0)), other.row(2).dot(this.col(1)), other.row(2).dot(this.col(2)), other.row(2).dot(this.col(3)),
 			other.row(3).dot(this.col(0)), other.row(3).dot(this.col(1)), other.row(3).dot(this.col(2)), other.row(3).dot(this.col(3)),
+		];
+		return this;
+	}
+
+	this.mulBeforeVec4 = function(vec4) {
+		return new Vec4([
+			this.row(0).dot(vec4),
+			this.row(1).dot(vec4),
+			this.row(2).dot(vec4),
+			this.row(3).dot(vec4),
+		]);
+	}
+
+	this.mulBeforeVec3 = function(vec3) {
+		var vec4 = new Vec4([vec3.x, vec3.y, vec3.z]);
+		return new Vec4([
+			this.row(0).dot(vec4),
+			this.row(1).dot(vec4),
+			this.row(2).dot(vec4),
+			this.row(3).dot(vec4),
+		]);
+	}
+
+	this.getVal = function(row, col) {
+		return this.data[row * 4 + col];
+	}
+
+	// Create a translation matrix
+	this.createTranslateMatrix = function(x, y, z) {
+		this.data = [
+			1, 0, 0, x,
+			0, 1, 0, y,
+			0, 0, 1, z,
+			0, 0, 0, 1,
+		];
+		return this;
+	}
+
+	// Create a rotation matrix
+	/**
+		axes: 0 -> x, 1 -> y, 2 -> z
+		radius: 0 ~ 2PI
+	*/
+	this.createRotationMatrix = function(axes, radius) {
+		switch (axes) {
+			case 0:
+				this.data = [
+					1, 0, 0, 0,
+					0, Math.cos(radius), -Math.sin(radius), 0, 
+					0, Math.sin(radius), Math.cos(radius), 0,
+					0, 0, 0, 1,
+				];
+				break;
+			case 1:
+				this.data = [
+					Math.cos(radius), 0, Math.sin(radius), 0,
+					0, 1, 0, 0,
+					-Math.sin(radius), 0, Math.cos(radius), 0,
+					0, 0, 0, 1,
+				];
+				break;
+			case 2:
+				this.data = [
+					Math.cos(radius), -Math.sin(radius), 0, 0,
+					Math.sin(radius), Math.cos(radius), 0, 0,
+					0, 0, 1, 0,
+					0, 0, 0, 1,
+				];
+				break;
+		}
+		return this;
+	}
+
+	// Create a scale matrix
+	this.createScaleMatrix = function(sx, sy, sz) {
+		this.data = [
+			sx, 0, 0, 0,
+			0, sy, 0, 0,
+			0, 0, sz, 0,
+			0, 0, 0, 1,
 		];
 		return this;
 	}
