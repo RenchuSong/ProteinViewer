@@ -3,6 +3,8 @@
  *
  *  ProteinViewer is freely distributable under the terms of an Apache license.
  *
+ *	Special thanks to Cornell CS 4620 Framework: https://github.com/CornellCS4620/Framework
+ *
  *--------------------------------------------------------------------------*/
 
 var ProteinViewer = function(width, height, DOMObj) {
@@ -15,11 +17,16 @@ var ProteinViewer = function(width, height, DOMObj) {
 	this.scene = scene;
 	
 	// Camera
-	var camera = new THREE.PerspectiveCamera( 
-		width, width / height, 0.1, 1000 
+	// TODO: Decide to use perspective camera or orthographic camera, now using orthographic
+	// var camera = new THREE.PerspectiveCamera( 
+	// 	width, width / height, 0.1, 1000 
+	// );
+
+	var camera = new THREE.OrthographicCamera( 
+		width / - 2, width / 2, height / 2, height / - 2, 0.1, 1000 
 	);
+
 	this.camera = camera;
-	this.camera.position.z = 400;
 	this.cameraUp = new Vec3([0, 1, 0]);
 	this.cameraForward = new Vec3([0, 0, 1]);
 	this.cameraDist = 400;
@@ -31,6 +38,7 @@ var ProteinViewer = function(width, height, DOMObj) {
 		this.camera.lookAt(new THREE.Vector3(0, 0, 0));
 		this.camera.up = new THREE.Vector3(this.cameraUp.x, this.cameraUp.y, this.cameraUp.z);
 	}
+	this.updateCamera();
 	// Camera Rotate
 	this.cameraRotateTo = function(rx, ry) {
 		var rMat = new Mat4().createRotationMatrix(0, rx).mulBefore(
@@ -47,6 +55,63 @@ var ProteinViewer = function(width, height, DOMObj) {
 		this.cameraForward = rMat.mulBeforeVec3(this.cameraForward).getVec3();
 		this.cameraUp = rMat.mulBeforeVec3(this.cameraUp).getVec3();
 		this.updateCamera();
+	}
+
+	// Lights
+	this.lights = [];
+	this.lightPivotAxis = new Vec3([0, 0, 5000]);
+	this.lightHoriAxis = new Vec3([5000, 0, 0]);
+	this.lightVertAxis = new Vec3([0, 5000, 0]);
+	// Now adding four lights
+	this.lights.push(new THREE.PointLight(0xFFFFFF));	// Main light
+	this.lights.push(new THREE.PointLight(0x333333));	// Peripheral light 1
+	this.lights.push(new THREE.PointLight(0x333333));	// Peripheral light 2
+	this.lights.push(new THREE.PointLight(0x111111));	// Peripheral light 3
+	// Update light position
+	this.updateLights = function() {
+		var light0 = this.lightPivotAxis.clone().add(this.lightHoriAxis).add(this.lightVertAxis);
+		var light1 = this.lightPivotAxis.clone().add(this.lightHoriAxis).subtract(this.lightVertAxis);
+		var light2 = this.lightPivotAxis.clone().subtract(this.lightHoriAxis).add(this.lightVertAxis);
+		var light3 = this.lightPivotAxis.clone().subtract(this.lightHoriAxis).subtract(this.lightVertAxis);
+		this.lights[0].position.set(light0.x, light0.y, light0.z);
+		this.lights[1].position.set(light1.x, light1.y, light1.z);
+		this.lights[2].position.set(light2.x, light2.y, light2.z);
+		this.lights[3].position.set(light3.x, light3.y, light3.z);
+	}
+	// Init lights
+	this.updateLights();
+	for (var i = 0; i < this.lights.length; i++) {
+		this.scene.add(this.lights[i]);
+	}
+	// Lights Rotate
+	this.lightsRotateTo = function(rx, ry) {
+		var rMat = new Mat4().createRotationMatrix(0, rx).mulBefore(
+				new Mat4().createRotationMatrix(1, ry)
+			);
+		this.lightPivotAxis = rMat.mulBeforeVec3(new Vec3([0, 0, 5000])).getVec3();
+		this.lightHoriAxis = rMat.mulBeforeVec3(new Vec3([5000, 0, 0])).getVec3();
+		this.lightVertAxis = rMat.mulBeforeVec3(new Vec3([0, 5000, 0])).getVec3();
+		this.updateLights();
+	}
+	this.lightsRotate = function(rx, ry) {
+		var rMat = new Mat4().createRotationMatrix(0, rx).mulBefore(
+				new Mat4().createRotationMatrix(1, ry)
+			);
+
+		this.lightPivotAxis = rMat.mulBeforeVec3(this.lightPivotAxis).getVec3();
+		this.lightHoriAxis = rMat.mulBeforeVec3(this.lightHoriAxis).getVec3();
+		this.lightVertAxis = rMat.mulBeforeVec3(this.lightVertAxis).getVec3();
+		this.updateLights();
+	}
+
+	// Scene Rotate (Rotate Camere & Lights synchronizely)
+	this.sceneRotateTo = function(rx, ry) {
+		this.cameraRotateTo(rx, ry);
+		this.lightsRotateTo(rx, ry);
+	}
+	this.sceneRotate = function(rx, ry) {
+		this.cameraRotate(rx, ry);
+		this.lightsRotate(rx, ry);
 	}
 
 	// Renderer
@@ -79,7 +144,7 @@ var ProteinViewer = function(width, height, DOMObj) {
 	this.appendProtein = function(x, y, z, data, color, lineRadius, planeWidth, angleThreshold) {
 		var geometry = new THREE.BoxGeometry( 100, 100, 100 );
 		
-		var sphereMaterial = new THREE.MeshBasicMaterial( { color: color } );
+		var sphereMaterial = new THREE.MeshLambertMaterial( { color: color } );
 
 		var cube = new THREE.Mesh( geometry, sphereMaterial );
 		cube.position.x = x;
@@ -159,6 +224,27 @@ var Vec3 = function(data) {
 		return this;
 	}
 
+	this.scale = function(scale) {
+		this.x *= scale;
+		this.y *= scale;
+		this.z *= scale;
+		return this;
+	}
+
+	this.add = function(other) {
+		this.x += other.x;
+		this.y += other.y;
+		this.z += other.z;
+		return this;
+	}
+
+	this.subtract = function(other) {
+		this.x -= other.x;
+		this.y -= other.y;
+		this.z -= other.z;
+		return this;
+	}
+	
 	this.dot = function(other) {
 		return this.x * other.x + this.y * other.y + this.z * other.z;
 	}
