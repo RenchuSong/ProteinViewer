@@ -27,8 +27,9 @@ var ProteinViewer = function(width, height, DOMObj) {
 	);
 
 	this.camera = camera;
-	this.cameraUp = new Vec3([0, 1, 0]);
 	this.cameraForward = new Vec3([0, 0, 1]);
+	this.cameraRight = new Vec3([1, 0, 0]);
+	this.cameraUp = new Vec3([0, 1, 0]);
 	this.cameraDist = 400;
 	// Update Camera
 	this.updateCamera = function() {
@@ -44,16 +45,28 @@ var ProteinViewer = function(width, height, DOMObj) {
 		var rMat = new Mat4().createRotationMatrix(0, rx).mulBefore(
 				new Mat4().createRotationMatrix(1, ry)
 			);
-		this.cameraForward = rMat.mulBeforeVec3(new Vec4([0, 0, 1])).getVec3();
-		this.cameraUp = rMat.mulBeforeVec3(new Vec4([0, 1, 0])).getVec3();
+		this.cameraForward = rMat.mulBeforeVec4(new Vec4([0, 0, 1])).getVec3();
+		this.cameraUp = rMat.mulBeforeVec4(new Vec4([0, 1, 0])).getVec3();
+		this.cameraRight = rMat.mulBeforeVec4(new Vec4([1, 0, 0])).getVec3();
 		this.updateCamera();
 	}
 	this.cameraRotate = function(rx, ry) {
 		var rMat = new Mat4().createRotationMatrix(0, rx).mulBefore(
 				new Mat4().createRotationMatrix(1, ry)
 			);
-		this.cameraForward = rMat.mulBeforeVec3(this.cameraForward).getVec3();
-		this.cameraUp = rMat.mulBeforeVec3(this.cameraUp).getVec3();
+
+		var frame = new Mat4().frame2canonical(
+			this.cameraRight.clone().normalize(), 
+			this.cameraUp.clone().normalize(),
+			this.cameraForward.clone().normalize()
+		);
+
+		rMat.mulAfter(frame);
+		
+		this.cameraRight = rMat.mulBeforeVec4(new Vec4([1, 0, 0])).getVec3();
+		this.cameraUp = rMat.mulBeforeVec4(new Vec4([0, 1, 0])).getVec3();
+		this.cameraForward = rMat.mulBeforeVec4(new Vec4([0, 0, 1])).getVec3();
+
 		this.updateCamera();
 	}
 
@@ -66,7 +79,7 @@ var ProteinViewer = function(width, height, DOMObj) {
 	this.lights.push(new THREE.PointLight(0xFFFFFF));	// Main light
 	this.lights.push(new THREE.PointLight(0x333333));	// Peripheral light 1
 	this.lights.push(new THREE.PointLight(0x333333));	// Peripheral light 2
-	this.lights.push(new THREE.PointLight(0x111111));	// Peripheral light 3
+	this.lights.push(new THREE.PointLight(0x222222));	// Peripheral light 3
 	// Update light position
 	this.updateLights = function() {
 		var light0 = this.lightPivotAxis.clone().add(this.lightHoriAxis).add(this.lightVertAxis);
@@ -97,10 +110,16 @@ var ProteinViewer = function(width, height, DOMObj) {
 		var rMat = new Mat4().createRotationMatrix(0, rx).mulBefore(
 				new Mat4().createRotationMatrix(1, ry)
 			);
+		var frame = new Mat4().frame2canonical(
+			this.lightHoriAxis.clone().normalize(), 
+			this.lightVertAxis.clone().normalize(),
+			this.lightPivotAxis.clone().normalize()
+		);
+		rMat.mulAfter(frame);
 
-		this.lightPivotAxis = rMat.mulBeforeVec3(this.lightPivotAxis).getVec3();
-		this.lightHoriAxis = rMat.mulBeforeVec3(this.lightHoriAxis).getVec3();
-		this.lightVertAxis = rMat.mulBeforeVec3(this.lightVertAxis).getVec3();
+		this.lightPivotAxis = rMat.mulBeforeVec3(new Vec3([0, 0, 5000])).getVec3();
+		this.lightHoriAxis = rMat.mulBeforeVec3(new Vec3([5000, 0, 0])).getVec3();
+		this.lightVertAxis = rMat.mulBeforeVec3(new Vec3([0, 5000, 0])).getVec3();
 		this.updateLights();
 	}
 
@@ -409,6 +428,78 @@ var Mat4 = function(data) {
 			0, 0, sz, 0,
 			0, 0, 0, 1,
 		];
+		return this;
+	}
+
+	// World to Frame Matrix
+	this.frame2canonical = function(u, v, p, e) {
+		if ("undefined" === typeof e) {
+			e = new Vec4([0, 0, 0, 1]);
+		}
+		this.data = [
+			u.x, v.x, p.x, e.x,
+			u.y, v.y, p.y, e.y,
+			u.z, v.z, p.z, e.z,
+			0, 0, 0, 1
+		];
+		return this;
+	}
+
+	// Transpose
+	this.transpose = function() {
+		this.data = [
+			this.data[0], this.data[4], this.data[8], this.data[12],
+			this.data[1], this.data[5], this.data[9], this.data[13],
+			this.data[2], this.data[6], this.data[10], this.data[14],
+			this.data[3], this.data[7], this.data[11], this.data[15],			
+		];
+		return this;
+	}
+
+	// Co-Factor
+	this.cofactor = function(r, c) {
+		var m = [];
+		var cur = 0;
+		for (var i = 0; i < 4; i++) {
+			if (i == r) continue;
+			for (var j = 0; j < 4; j++) {
+				if (j == c) continue;
+				m[cur++] = this.data[i * 4 + j];
+			}
+		}
+
+		var ans = m[0] * (m[4] * m[8] - m[5] * m[7]) - m[1] * (m[3] * m[8] - m[5] * m[6]) + m[2] * (m[3] * m[7] - m[4] * m[6]);
+
+		if( (r + c) % 2 == 0) return ans;
+		else return -ans;
+	}
+
+	// Determinant
+	this.determinant = function() {
+		return 	this.data[0] * this.cofactor(0, 0) +
+				this.data[1] * this.cofactor(0, 1) +
+				this.data[2] * this.cofactor(0, 2) +
+				this.data[3] * this.cofactor(0, 3);
+	}
+
+	// Invert
+	this.invert = function() {
+		var det = this.determinant();
+		if (det == 0) throw "singular matrix";
+		this.data = [
+			this.cofactor(0, 0), this.cofactor(1, 0), this.cofactor(2, 0), this.cofactor(3, 0), 
+			this.cofactor(0, 1), this.cofactor(1, 1), this.cofactor(2, 1), this.cofactor(3, 1), 
+			this.cofactor(0, 2), this.cofactor(1, 2), this.cofactor(2, 2), this.cofactor(3, 2), 
+			this.cofactor(0, 3), this.cofactor(1, 3), this.cofactor(2, 3), this.cofactor(3, 3), 
+		];
+		return this.scale(1.0 / det);
+	}
+
+	// Scale
+	this.scale = function(scale) {
+		for (var i = 0; i < 16; i++) {
+			this.data[i] *= scale;
+		}
 		return this;
 	}
 }
