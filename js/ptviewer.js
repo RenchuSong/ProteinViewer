@@ -203,11 +203,12 @@ var ProteinViewer = function(width, height, DOMObj) {
 		x, y, z: protein center location
 		data: json represented protein geometry
 		color: init color
+		scale: scaling the protein, 1.0 by default
 		lineRadius: radius of line part
 		planeWidth: width of flake / roll part (thick same as diameter of line part)
 		angleThreshold: directional smooth parameter, the less the threshold, the smoother the surface 
 	*/
-	this.appendProtein = function(x, y, z, data, color, lineRadius, planeWidth, angleThreshold) {
+	this.appendProtein = function(x, y, z, data, color, scale, lineRadius, planeWidth, angleThreshold) {
 		var geometry = new THREE.BoxGeometry( 60, 60, 60 );
 		
 		var sphereMaterial = new THREE.MeshLambertMaterial( { color: color } );
@@ -218,7 +219,8 @@ var ProteinViewer = function(width, height, DOMObj) {
 		cube.position.z = z;
 		
 		this.scene.add(cube);
-		this.protein.push(cube);	
+		this.protein.push(cube);
+		geometry.vertices[0].x += 50;
 	}
 
 	// Hide a protein
@@ -266,6 +268,107 @@ var ProteinViewer = function(width, height, DOMObj) {
 		this.protein[index].rotation.z += dz;
 	}
 	
+};
+
+// TODO: Catmull interpolate
+function cutmullInterpolate(data, angleThreshold) {
+	return data;
+}
+
+var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
+	this.framePoints = framePoints;
+	
+	this.scale;
+	if ("undefined" === typeof scale) {
+		this.scale = 1.0;
+	} else {
+		this.scale = scale;
+	}
+	
+	this.lineRadius;
+	if ("undefined" === typeof lineRadius) {
+		this.lineRadius = 5;
+	} else {
+		this.lineRadius = lineRadius;
+	}
+	
+	this.angleThreshold;
+	if ("undefined" === typeof angleThreshold) {
+		this.angleThreshold = 0.015;
+	} else {
+		this.angleThreshold = angleThreshold;
+	}
+
+	this.alongPoints = [];
+	this.interpolate = function() {
+		this.alongPoints = cutmullInterpolate(this.framePoints, this.angleThreshold);
+	}
+
+	// Construct Geometry
+	this.geoPoints = [];
+	this.geoPointsNorm = [];
+	this.execute = function() {
+		this.interpolate();
+		var len = this.alongPoints.length;
+		
+		// TODO: if short, use arbirary normal direction
+		if (len < 3) return;
+		var prevNormal, normal, tangent, curv;
+
+		for (var i = 0; i < len - 1; i++) {
+			var point = this.alongPoints[i];
+			var point2 = this.alongPoints[i + 1];
+
+			var cross = [];
+			var crossNorm = [];
+			tangent = point2.clone().subtract(point).normalize();
+
+			if (i == len - 2) {
+				normal = prevNormal;
+			} else {
+				var tangent2 = this.alongPoints[i + 2].clone().subtract(point2).normalize();
+				normal = tangent.clone().cross(tangent2).normalize();
+				// Degenerated normal
+				if (normal.len() < 1e-10) {
+					if ("undefined" === typeof prevNormal) {
+						var tmp = tangent.clone();
+						// TODO: Now hack with adding strange biases to avoid degenerate.
+						tmp.x += Math.PI;
+						tmp.y += Math.log(2);
+						tmp.z += (1 + Math.sqrt(5)) / 2;
+						normal = tangent.cross(tmp);
+					} else {
+						normal = prevNormal.clone();
+					}
+				}
+				// Avoid sudden change in curvation
+				if ("undefined" !== typeof prevNormal && normal.angle(prevNormal) > Math.PI / 2) {
+					normal.scale(-1);
+				}
+			}
+			prevNormal = normal;
+			curv = normal.cross(tangent);
+
+			// console.log(i);
+			// console.log(tangent);
+			// console.log(normal);
+			// console.log(curv);
+			
+			// TODO: decide the number of slices for the ring, now setting to 10.
+			for (var k = 0; k < 10; k++) {
+				var angle = Math.PI * 2 / 10 * k;
+				var norm = normal.clone().scale(Math.cos(angle)).add(curv.clone().scale(Math.sin(angle)));
+				crossNorm.push(norm);
+				var point = point.clone().add(norm.clone().scale(this.lineRadius)).scale(this.scale);
+				cross.push(point);
+			}
+
+			this.geoPoints.push(cross);
+			this.geoPointsNorm.push(crossNorm);
+		}
+		// console.log(this.geoPoints);
+		// console.log(this.geoPointsNorm);
+	}
 };
 
 // Vector 3
@@ -321,6 +424,12 @@ var Vec3 = function(data) {
 			this.z * other.x - this.x * other.z,
 			this.x * other.y - this.y * other.x,
 		]);
+	}
+
+	this.angle = function(other) {
+		var cos0 = this.dot(other) / this.len() / other.len();
+		cos0 = Math.max(-1, Math.min(1, cos0));
+		return Math.acos(cos0);
 	}
 };
 
