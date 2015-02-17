@@ -273,25 +273,25 @@ var ProteinViewer = function(width, height, DOMObj) {
 							// First triangle
 							var face = new THREE.Face3(base + 1, base, base + m);
 							face.vertexNormals[0] = new THREE.Vector3( 
-								geoPointsNorm[j][k + 1].x, geoPoints[j][k + 1].y, geoPoints[j][k + 1].z
+								geoPointsNorm[j][k + 1].x, geoPointsNorm[j][k + 1].y, geoPointsNorm[j][k + 1].z
 							);
 							face.vertexNormals[1] = new THREE.Vector3( 
-								geoPointsNorm[j][k].x, geoPoints[j][k].y, geoPoints[j][k].z
+								geoPointsNorm[j][k].x, geoPointsNorm[j][k].y, geoPointsNorm[j][k].z
 							);
 							face.vertexNormals[2] = new THREE.Vector3( 
-								geoPointsNorm[j + 1][k].x, geoPoints[j + 1][k].y, geoPoints[j + 1][k].z
+								geoPointsNorm[j + 1][k].x, geoPointsNorm[j + 1][k].y, geoPointsNorm[j + 1][k].z
 							);
 							geometry.faces.push(face);
 							// Second triangle
 							face = new THREE.Face3(base + 1, base + m, base + m + 1);
 							face.vertexNormals[0] = new THREE.Vector3( 
-								geoPointsNorm[j][k + 1].x, geoPoints[j][k + 1].y, geoPoints[j][k + 1].z
+								geoPointsNorm[j][k + 1].x, geoPointsNorm[j][k + 1].y, geoPointsNorm[j][k + 1].z
 							);
 							face.vertexNormals[1] = new THREE.Vector3( 
-								geoPointsNorm[j + 1][k].x, geoPoints[j + 1][k].y, geoPoints[j + 1][k].z
+								geoPointsNorm[j + 1][k].x, geoPointsNorm[j + 1][k].y, geoPointsNorm[j + 1][k].z
 							);
 							face.vertexNormals[2] = new THREE.Vector3( 
-								geoPointsNorm[j + 1][k + 1].x, geoPoints[j + 1][k + 1].y, geoPoints[j + 1][k + 1].z
+								geoPointsNorm[j + 1][k + 1].x, geoPointsNorm[j + 1][k + 1].y, geoPointsNorm[j + 1][k + 1].z
 							);
 							geometry.faces.push(face);
 						}
