@@ -211,7 +211,7 @@ var ProteinViewer = function(width, height, DOMObj) {
 	this.appendProtein = function(x, y, z, data, color, scale, lineRadius, planeWidth, angleThreshold) {
 		var geometry = new THREE.BoxGeometry( 60, 60, 60 );
 		
-		var sphereMaterial = new THREE.MeshLambertMaterial( { color: color } );
+		var sphereMaterial = new THREE.MeshLambertMaterial( { color: color, shading: THREE.SmoothShading } );
 
 		var cube = new THREE.Mesh( geometry, sphereMaterial );
 		cube.position.x = x;
@@ -240,7 +240,7 @@ var ProteinViewer = function(width, height, DOMObj) {
 	// Change protein color
 	this.changeProteinColor = function(index, newColor) {
 		if (0 <=index && index < this.protein.length) {
-			this.protein[index].material = new THREE.MeshLambertMaterial( { color: newColor } );
+			this.protein[index].material = new THREE.MeshLambertMaterial( { color: newColor, shading: THREE.SmoothShading } );
 		}
 	}
 
