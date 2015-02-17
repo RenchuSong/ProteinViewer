@@ -360,9 +360,52 @@ var ProteinViewer = function(width, height, DOMObj) {
 	
 };
 
-// TODO: Catmull interpolate
-function cutmullInterpolate(data, angleThreshold) {
-	return data;
+// TODO: Hermite interpolate
+function hermiteInterpolate(data, angleThreshold) {
+	if (data.length < 3) {
+		var result = [];
+		for (var d in data) {
+			result.push(d);
+		}
+		result.push(data[data.length - 1].clone().scale(2).subtract(data[data.length - 2]));
+		return result;
+	}
+
+	// First tangent
+	var tangents = [data[1].clone().subtract(data[0]).normalize()];
+	// Middle tangent
+	for (var i = 1; i < data.length - 1; i++) {
+		tangents.push(data[i + 1].clone().subtract(data[i - 1]).normalize());
+	}
+	// Last tangent
+	tangents.push(data[data.length - 1].clone().subtract(data[data.length - 2]).normalize());
+
+	// TODO: change to recursive, now uniform sampling
+	var result = [];
+	for (var i = 0; i < data.length - 1; i++) {
+		for (var lp = 0; lp < 10; lp++) {
+			var t = lp / 10.0;
+			var t2 = t * t;
+			var t3 = t * t * t;
+			var s = data[i + 1].clone().subtract(data[i]).len();
+			var h00 = 2 * t3 - 3 * t2 + 1;
+			var h10 = (t3 - 2 * t2 + t) * s;
+			var h01 = -2 * t3 + 3 * t2;
+			var h11 = (t3 - t2) * s;
+			result.push(
+				data[i].clone().scale(h00).add(
+					tangents[i].clone().scale(h10)
+				).add(
+					data[i + 1].clone().scale(h01)
+				).add(
+					tangents[i + 1].clone().scale(h11)
+				)
+			);
+		}
+	}
+	result.push(data[data.length - 1]);
+
+	return result;
 }
 
 var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
@@ -391,7 +434,7 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 
 	this.alongPoints = [];
 	this.interpolate = function() {
-		this.alongPoints = cutmullInterpolate(this.framePoints, this.angleThreshold);
+		this.alongPoints = hermiteInterpolate(this.framePoints, this.angleThreshold);
 	}
 
 	// Construct Geometry
