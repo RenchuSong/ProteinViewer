@@ -209,18 +209,108 @@ var ProteinViewer = function(width, height, DOMObj) {
 		angleThreshold: directional smooth parameter, the less the threshold, the smoother the surface 
 	*/
 	this.appendProtein = function(x, y, z, data, color, scale, lineRadius, planeWidth, angleThreshold) {
-		var geometry = new THREE.BoxGeometry( 60, 60, 60 );
+		var geometry = new THREE.Geometry();
 		
-		var sphereMaterial = new THREE.MeshLambertMaterial( { color: color, shading: THREE.SmoothShading } );
+		// Construct protein geometry
+		if (data.length > 0) {
+			data.push({ 
+				x: data[data.length - 1].x, 
+				y: data[data.length - 1].y, 
+				z: data[data.length - 1].z, 
+				type: -1, 
+			});
+			var curType = data[0].type;
+			var framePointsBuffer = [new Vec3([data[0].x, data[0].y, data[0].z])];
+			for (var i = 1; i < data.length; i++) {
+				framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
+				if (data[i].type != curType) {
+					console.log(framePointsBuffer);
+					var geoSegment;
+					switch (curType) {
+						case 0:
+						geoSegment = new LineGeo(framePointsBuffer, scale, lineRadius, angleThreshold);
+						break;
+						case 1:
 
-		var cube = new THREE.Mesh( geometry, sphereMaterial );
-		cube.position.x = x;
-		cube.position.y = y;
-		cube.position.z = z;
+						break;
+						case 2:
+
+						break;
+					}
+					geoSegment.execute();
+					console.log(geoSegment);
+					var geoPoints = geoSegment.geoPoints;
+					var geoPointsNorm = geoSegment.geoPointsNorm;
+					var m = geoPoints[0].length;
+					var n = geoPoints.length;
+					// #Points already in geometry 
+					var bias = geometry.vertices.length;
+					
+					for (var j = 0; j < n; j++) {
+						for (var k = 0; k < m; k++) {
+							geometry.vertices.push(
+								new THREE.Vector3( 
+									geoPoints[j][k].x, geoPoints[j][k].y, geoPoints[j][k].z
+								)
+							);
+						}
+					}
+					// Bottom Cap
+					var tan = geoPoints[0][1].clone().subtract(geoPoints[0][0]).cross(
+						geoPoints[0][2].clone().subtract(geoPoints[0][0])
+					);
+					for (var j = 1; j < m - 1; j++) {
+						var face = new THREE.Face3(bias, bias + j, bias + j + 1);
+						face.normal.set(tan.x, tan.y, tan.z);
+						geometry.faces.push(face);
+					}
+					// TODO: Top Cap
+
+					// Soft Tube
+					for (var j = 0; j < n - 1; j++) {
+						for (var k = 0; k < m - 1; k++) {
+							var base = j * m + k + bias;
+							// First triangle
+							var face = new THREE.Face3(base + 1, base, base + m);
+							face.vertexNormals[0] = new THREE.Vector3( 
+								geoPointsNorm[j][k + 1].x, geoPoints[j][k + 1].y, geoPoints[j][k + 1].z
+							);
+							face.vertexNormals[1] = new THREE.Vector3( 
+								geoPointsNorm[j][k].x, geoPoints[j][k].y, geoPoints[j][k].z
+							);
+							face.vertexNormals[2] = new THREE.Vector3( 
+								geoPointsNorm[j + 1][k].x, geoPoints[j + 1][k].y, geoPoints[j + 1][k].z
+							);
+							geometry.faces.push(face);
+							// Second triangle
+							face = new THREE.Face3(base + 1, base + m, base + m + 1);
+							face.vertexNormals[0] = new THREE.Vector3( 
+								geoPointsNorm[j][k + 1].x, geoPoints[j][k + 1].y, geoPoints[j][k + 1].z
+							);
+							face.vertexNormals[1] = new THREE.Vector3( 
+								geoPointsNorm[j + 1][k].x, geoPoints[j + 1][k].y, geoPoints[j + 1][k].z
+							);
+							face.vertexNormals[2] = new THREE.Vector3( 
+								geoPointsNorm[j + 1][k + 1].x, geoPoints[j + 1][k + 1].y, geoPoints[j + 1][k + 1].z
+							);
+							geometry.faces.push(face);
+						}
+					}
+
+					framePointsBuffer = [new Vec3(data[i].x, data[i].y, data[i].z)];
+					curType = data[i].type;
+				}
+			}
+		}
+
+		var material = new THREE.MeshLambertMaterial( { color: color, shading: THREE.SmoothShading } );
+		var protein = new THREE.Mesh( geometry, material );
+		protein.position.x = x;
+		protein.position.y = y;
+		protein.position.z = z;
 		
-		this.scene.add(cube);
-		this.protein.push(cube);
-		geometry.vertices[0].x += 50;
+		this.scene.add(protein);
+		this.protein.push(protein);
 	}
 
 	// Hide a protein
@@ -277,7 +367,7 @@ function cutmullInterpolate(data, angleThreshold) {
 
 var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 	this.framePoints = framePoints;
-	
+
 	this.scale;
 	if ("undefined" === typeof scale) {
 		this.scale = 1.0;
@@ -313,7 +403,7 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 		
 		// TODO: if short, use arbirary normal direction
 		if (len < 3) return;
-		var prevNormal, normal, tangent, curv;
+		var prevNormal, normal, prevTangent, tangent, curv;
 
 		for (var i = 0; i < len - 1; i++) {
 			var point = this.alongPoints[i];
@@ -322,7 +412,14 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 			var cross = [];
 			var crossNorm = [];
 			tangent = point2.clone().subtract(point).normalize();
-
+			if (tangent.len() < 1e-10) {
+				// TODO: may trigger corner case
+				if ("undefined" === typeof prevTangent) {
+					tangent = new Vec3(0.1, 0.1, 0.1);
+				} else {
+					tangent = prevTangent;
+				}
+			}
 			if (i == len - 2) {
 				normal = prevNormal;
 			} else {
@@ -347,6 +444,7 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 				}
 			}
 			prevNormal = normal;
+			prevTangent = tangent;
 			curv = normal.cross(tangent);
 
 			// console.log(i);
@@ -355,12 +453,12 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 			// console.log(curv);
 			
 			// TODO: decide the number of slices for the ring, now setting to 10.
-			for (var k = 0; k < 10; k++) {
+			for (var k = 0; k <= 10; k++) {
 				var angle = Math.PI * 2 / 10 * k;
 				var norm = normal.clone().scale(Math.cos(angle)).add(curv.clone().scale(Math.sin(angle)));
 				crossNorm.push(norm);
-				var point = point.clone().add(norm.clone().scale(this.lineRadius)).scale(this.scale);
-				cross.push(point);
+				var pt = point.clone().add(norm.clone().scale(this.lineRadius)).scale(this.scale);
+				cross.push(pt);
 			}
 
 			this.geoPoints.push(cross);
