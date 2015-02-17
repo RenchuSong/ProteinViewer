@@ -210,6 +210,10 @@ var ProteinViewer = function(width, height, DOMObj) {
 	*/
 	this.appendProtein = function(x, y, z, data, color, scale, lineRadius, planeWidth, angleThreshold) {
 		var geometry = new THREE.Geometry();
+
+		if ("undefined" === typeof angleThreshold) {
+			angleThreshold = 0.015;
+		}
 		
 		// Construct protein geometry
 		if (data.length > 0) {
@@ -230,7 +234,7 @@ var ProteinViewer = function(width, height, DOMObj) {
 					var geoSegment;
 					switch (curType) {
 						case 0:
-						geoSegment = new LineGeo(framePointsBuffer, scale, lineRadius, angleThreshold);
+						geoSegment = new LineGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, scale);
 						break;
 						case 1:
 
@@ -418,8 +422,8 @@ function hermiteInterpolate(data, angleThreshold) {
 	return result;
 }
 
-var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
-	this.framePoints = framePoints;
+var LineGeo = function(alongPoints, lineRadius, scale) {
+	this.alongPoints = alongPoints;
 
 	this.scale;
 	if ("undefined" === typeof scale) {
@@ -434,24 +438,11 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 	} else {
 		this.lineRadius = lineRadius;
 	}
-	
-	this.angleThreshold;
-	if ("undefined" === typeof angleThreshold) {
-		this.angleThreshold = 0.015;
-	} else {
-		this.angleThreshold = angleThreshold;
-	}
-
-	this.alongPoints = [];
-	this.interpolate = function() {
-		this.alongPoints = hermiteInterpolate(this.framePoints, this.angleThreshold);
-	}
 
 	// Construct Geometry
 	this.geoPoints = [];
 	this.geoPointsNorm = [];
 	this.execute = function() {
-		this.interpolate();
 		var len = this.alongPoints.length;
 		
 		// TODO: if short, use arbirary normal direction
