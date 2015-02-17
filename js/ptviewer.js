@@ -4,7 +4,7 @@
  *  ProteinViewer is freely distributable under the terms of an Apache license.
  *
  *	Special thanks to Cornell CS 4620 Framework: https://github.com/CornellCS4620/Framework
- *
+ *	And Canvas Dragging example: http://rectangleworld.com/demos/SimpleDragging/SimpleDragging
  *--------------------------------------------------------------------------*/
 
 var ProteinViewer = function(width, height, DOMObj) {
@@ -140,6 +140,53 @@ var ProteinViewer = function(width, height, DOMObj) {
 
 	// Canvas
 	DOMObj.appendChild(this.renderer.domElement);
+	// Canvas Drag
+	this.canvasApp = function(ptViewer) {
+		var ptViewer = ptViewer;
+		var theCanvas = this.renderer.domElement;
+		var dragging;
+		var prevX, prevY;
+		theCanvas.addEventListener("mousedown", mouseDownListener, false);
+
+		function mouseDownListener(evt) {
+			dragging = true;
+			
+			prevX = evt.clientX;
+			prevY = evt.clientY;
+			window.addEventListener("mousemove", mouseMoveListener, false);
+		
+			theCanvas.removeEventListener("mousedown", mouseDownListener, false);
+			window.addEventListener("mouseup", mouseUpListener, false);
+			
+			//code below prevents the mouse down from having an effect on the main browser window:
+			if (evt.preventDefault) {
+				evt.preventDefault();
+			} //standard
+			else if (evt.returnValue) {
+				evt.returnValue = false;
+			} //older IE
+			return false;
+		}
+		
+		function mouseUpListener(evt) {
+			theCanvas.addEventListener("mousedown", mouseDownListener, false);
+			window.removeEventListener("mouseup", mouseUpListener, false);
+			if (dragging) {
+				dragging = false;
+				window.removeEventListener("mousemove", mouseMoveListener, false);
+			}
+		}
+
+		function mouseMoveListener(evt) {
+			var dx = evt.clientX - prevX;
+			var dy = evt.clientY - prevY;
+			prevX = evt.clientX;
+			prevY = evt.clientY;
+
+			ptViewer.sceneRotate(-dy / 100, -dx / 100);
+		}
+	}
+	this.canvasApp(this);
 
 	// Render loop function
 	var render = function () {
@@ -161,7 +208,7 @@ var ProteinViewer = function(width, height, DOMObj) {
 		angleThreshold: directional smooth parameter, the less the threshold, the smoother the surface 
 	*/
 	this.appendProtein = function(x, y, z, data, color, lineRadius, planeWidth, angleThreshold) {
-		var geometry = new THREE.BoxGeometry( 100, 100, 100 );
+		var geometry = new THREE.BoxGeometry( 60, 60, 60 );
 		
 		var sphereMaterial = new THREE.MeshLambertMaterial( { color: color } );
 
