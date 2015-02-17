@@ -222,7 +222,9 @@ var ProteinViewer = function(width, height, DOMObj) {
 			var curType = data[0].type;
 			var framePointsBuffer = [new Vec3([data[0].x, data[0].y, data[0].z])];
 			for (var i = 1; i < data.length; i++) {
-				framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
+				if (data[i].type != -1) {
+					framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
+				}
 				if (data[i].type != curType) {
 					console.log(framePointsBuffer);
 					var geoSegment;
@@ -264,7 +266,15 @@ var ProteinViewer = function(width, height, DOMObj) {
 						face.normal.set(tan.x, tan.y, tan.z);
 						geometry.faces.push(face);
 					}
-					// TODO: Top Cap
+					// Top Cap
+					tan = geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0]).cross(
+						geoPoints[n - 1][1].clone().subtract(geoPoints[n - 1][0])
+					);
+					for (var j = 1; j < m - 1; j++) {
+						var face = new THREE.Face3(bias + (n - 1) * m, bias + (n - 1) * m + j + 1, bias + (n - 1) * m + j);
+						face.normal.set(tan.x, tan.y, tan.z);
+						geometry.faces.push(face);
+					}
 
 					// Soft Tube
 					for (var j = 0; j < n - 1; j++) {
@@ -362,15 +372,15 @@ var ProteinViewer = function(width, height, DOMObj) {
 
 // TODO: Hermite interpolate
 function hermiteInterpolate(data, angleThreshold) {
+	console.log(data);
 	if (data.length < 3) {
 		var result = [];
-		for (var d in data) {
-			result.push(d);
+		for (var i = 0; i < data.length; i++) {
+			result.push(data[i]);
 		}
 		result.push(data[data.length - 1].clone().scale(2).subtract(data[data.length - 2]));
 		return result;
 	}
-
 	// First tangent
 	var tangents = [data[1].clone().subtract(data[0]).normalize()];
 	// Middle tangent
@@ -451,6 +461,7 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 		for (var i = 0; i < len - 1; i++) {
 			var point = this.alongPoints[i];
 			var point2 = this.alongPoints[i + 1];
+			console.log(this.alongPoints);
 
 			var cross = [];
 			var crossNorm = [];
@@ -480,6 +491,7 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 					} else {
 						normal = prevNormal.clone();
 					}
+					normal.normalize();
 				}
 				// Avoid sudden change in curvation
 				if ("undefined" !== typeof prevNormal && normal.angle(prevNormal) > Math.PI / 2) {
@@ -490,10 +502,10 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 			prevTangent = tangent;
 			curv = normal.cross(tangent);
 
-			// console.log(i);
-			// console.log(tangent);
-			// console.log(normal);
-			// console.log(curv);
+			console.log(i);
+			console.log(tangent);
+			console.log(normal);
+			console.log(curv);
 			
 			// TODO: decide the number of slices for the ring, now setting to 10.
 			for (var k = 0; k <= 10; k++) {
@@ -507,8 +519,8 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 			this.geoPoints.push(cross);
 			this.geoPointsNorm.push(crossNorm);
 		}
-		// console.log(this.geoPoints);
-		// console.log(this.geoPointsNorm);
+		console.log(this.geoPoints);
+		console.log(this.geoPointsNorm);
 	}
 };
 
@@ -528,9 +540,11 @@ var Vec3 = function(data) {
 
 	this.normalize = function() {
 		var len = this.len();
-		this.x /= len;
-		this.y /= len;
-		this.z /= len;
+		if (len > 1e-15) {
+			this.x /= len;
+			this.y /= len;
+			this.z /= len;
+		}
 		return this;
 	}
 
