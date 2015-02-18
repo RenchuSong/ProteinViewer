@@ -1,4 +1,4 @@
-# ProteinViewer
+# ProteinViewer V0.1
 
 A light weight easy using JavaScript protein display library based on three.js 
 
