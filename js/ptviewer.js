@@ -417,8 +417,8 @@ function hermiteInterpolate(data, angleThreshold) {
 	// TODO: change to recursive, now uniform sampling
 	var result = [];
 	for (var i = 1; i < data.length - 2; i++) {
-		for (var lp = 0; lp < 10; lp++) {
-			var t = lp / 10.0;
+		for (var lp = 0; lp < 5; lp++) {
+			var t = lp / 5.0;
 			var t2 = t * t;
 			var t3 = t * t * t;
 			var s = data[i + 1].clone().subtract(data[i]).len();
@@ -442,6 +442,39 @@ function hermiteInterpolate(data, angleThreshold) {
 	//result.push(data[data.length - 2].clone().scale(2).subtract(data[data.length - 3]));
 
 	return result;
+}
+
+// TODO: hack smoothing normal changes
+function smoothNormalTransition(normals) {
+	var ratio = [];
+	var avg = 0;
+	for (var i = 1; i < normals.length; i++) {
+		var angle = normals[i].angle(normals[i - 1]);
+		avg += angle; 
+		ratio.push(angle);
+	}
+	avg /= normals.length - 1;
+	for (var i = 0; i < normals.length - 1; i++) {
+		if (ratio[i] > 2 * avg) {
+			normals[i + 1] = normals[i].clone();
+		}
+	}
+	for (var i = 1; i < normals.length; i++) {
+		if (normals[i].angle(normals[i - 1]) > Math.PI / 2) {
+			normals[i].scale(-1);
+		}
+	}
+	var tmpNormals = normals;
+
+	for (var lp = 0; lp < 50; lp++) {
+		normals = tmpNormals;
+		tmpNormals = [normals[0].clone().scale(2).add(normals[1]).normalize()];
+		for (var i = 1; i < normals.length - 1; i++) {
+			tmpNormals.push(normals[i].clone().scale(2).add(normals[i - 1]).add(normals[i + 1]).normalize());
+		}
+		tmpNormals.push(normals[normals.length - 1].scale(2).add(normals[normals.length - 2]).normalize());
+	}
+	return tmpNormals;
 }
 
 // 3D Line Geometry
@@ -573,13 +606,13 @@ var RollGeo = function(alongPoints, thickness, width, scale) {
 		// TODO: if short, use arbirary normal direction
 		if (len < 3) return;
 		var prevNormal, normal, prevTangent, tangent, curv;
+		var tangents = [];
+		var normals = [];
 
 		for (var i = 0; i < len - 1; i++) {
 			var point = this.alongPoints[i];
 			var point2 = this.alongPoints[i + 1];
 
-			var cross = [];
-			var crossNorm = [];
 			tangent = point2.clone().subtract(point).normalize();
 			if (tangent.len() < 1e-10) {
 				// TODO: may trigger corner case
@@ -615,6 +648,22 @@ var RollGeo = function(alongPoints, thickness, width, scale) {
 			}
 			prevNormal = normal;
 			prevTangent = tangent;
+
+			normals.push(normal.clone());
+			tangents.push(tangent.clone());
+		}
+
+		normals = smoothNormalTransition(normals);
+
+		for (var i = 0; i < len - 1; i++) {
+			var point = this.alongPoints[i];
+			var point2 = this.alongPoints[i + 1];
+
+			var cross = [];
+			var crossNorm = [];
+			
+			normal = normals[i];
+			tangent = tangents[i];
 			curv = normal.cross(tangent);
 
 			// console.log(i);
@@ -671,6 +720,7 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 		this.width = width;
 	}
 	
+	
 	// Construct Geometry
 	this.geoPoints = [];
 	this.geoPointsNorm = [];
@@ -680,13 +730,13 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 		// TODO: if short, use arbirary normal direction
 		if (len < 3) return;
 		var prevNormal, normal, prevTangent, tangent, curv;
+		var tangents = [];
+		var normals = [];
 
 		for (var i = 0; i < len - 1; i++) {
 			var point = this.alongPoints[i];
 			var point2 = this.alongPoints[i + 1];
 
-			var cross = [];
-			var crossNorm = [];
 			tangent = point2.clone().subtract(point).normalize();
 			if (tangent.len() < 1e-10) {
 				// TODO: may trigger corner case
@@ -722,8 +772,24 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 			}
 			prevNormal = normal;
 			prevTangent = tangent;
-			curv = normal.cross(tangent);
+
+			normals.push(normal.clone());
+			tangents.push(tangent.clone());
+		}
+
+		normals = smoothNormalTransition(normals);
+
+		for (var i = 0; i < len - 1; i++) {
+			var point = this.alongPoints[i];
+			var point2 = this.alongPoints[i + 1];
+
+			var cross = [];
+			var crossNorm = [];
 			
+			normal = normals[i];
+			tangent = tangents[i];
+			curv = normal.cross(tangent);
+
 			// TODO: Draw Arrow
 			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
 			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
