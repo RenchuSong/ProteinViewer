@@ -7,7 +7,7 @@
  *	And Canvas Dragging example: http://rectangleworld.com/demos/SimpleDragging/SimpleDragging
  *--------------------------------------------------------------------------*/
 
-var ProteinViewer = function(width, height, DOMObj) {
+var ProteinViewer = function(width, height, DOMObj, sceneMinX, sceneMaxX, sceneMinY, sceneMaxY) {
 	// Map of Protein Geometry Mesh
 	var protein = [];
 	this.protein = protein;
@@ -21,9 +21,21 @@ var ProteinViewer = function(width, height, DOMObj) {
 	// var camera = new THREE.PerspectiveCamera( 
 	// 	width, width / height, 0.1, 1000 
 	// );
+	if ("undefined" === typeof sceneMinX) {
+		sceneMinX = -width / 2;
+	}
+	if ("undefined" === typeof sceneMaxX) {
+		sceneMaxX = width / 2;
+	}
+	if ("undefined" === typeof sceneMinY) {
+		sceneMinY = -height / 2;
+	}
+	if ("undefined" === typeof sceneMaxY) {
+		sceneMaxY = height / 2;
+	}
 
 	var camera = new THREE.OrthographicCamera( 
-		width / - 2, width / 2, height / 2, height / - 2, 0.1, 1000 
+		sceneMinX, sceneMaxX, sceneMaxY, sceneMinY, 0.1, 1000 
 	);
 
 	this.camera = camera;
@@ -244,7 +256,7 @@ var ProteinViewer = function(width, height, DOMObj) {
 						break;
 					}
 					geoSegment.execute();
-					console.log(geoSegment);
+					//console.log(geoSegment);
 					var geoPoints = geoSegment.geoPoints;
 					var geoPointsNorm = geoSegment.geoPointsNorm;
 					var m = geoPoints[0].length;
@@ -388,10 +400,99 @@ var ProteinViewer = function(width, height, DOMObj) {
 	
 };
 
+// Wrapper based on Ke Liu's data format
+/**
+	data format:
+	{
+		"atoms":[
+			{"x" : -12.7110, "y" : -76.6390, "z" : 20.3000, "type" : 0, "ID" : "A44"},
+			{"x" : -14.6360, "y" : -73.3960, "z" : 19.7790, "type" : 0, "ID" : "A45"},
+			{"x" : -15.7110, "y" : -70.6390, "z" : 18.3000, "type" : 1, "ID" : "A46"},
+			{"x" : -16.6360, "y" : -68.3960, "z" : 17.7790, "type" : 1, "ID" : "A47"},
+			...
+			{"x" : -13.2180, "y" : -72.1640, "z" : 16.4780, "type" : 0, "ID" : "B46"},
+			{"x" : -14.7430, "y" : -69.8440, "z" : 13.8510, "type" : 0, "ID" : "B47"},
+			...
+		]
+	}
+
+	type: 0 line 1 slice 2 roll
+	ID: protein id + order
+*/
+var ProteinViewerWrapper = function(width, height, DOMObj, data) {
+
+	this.theme = [ 0xff0000, 0x00ff00, 0x0000ff, 0xff00ff, 0xffff00, 0x00ffff, 0xffffff ];
+	
+	this.proteinData = {};
+	
+	this.axisRange = 0;
+
+	data = data['atoms'];
+	var center = new Vec3([0, 0, 0]);
+	for (var i = 0; i < data.length; i++) {
+		var item = data[i];
+		center.add(new Vec3([item.x, item.y, item.z]));
+	}
+	center.scale(1.0 / data.length);
+	for (var i = 0; i < data.length; i++) {
+		var item = data[i];
+		var id = item['ID'][0];
+		var order = parseInt(item['ID'].substring(1));
+		if (id in this.proteinData) {
+			this.proteinData[id].push({
+				x : item['x'],
+				y : item['y'],
+				z : item['z'],
+				type : item['type'],
+				order : order
+			});
+		} else {
+			this.proteinData[id] = [{
+				x : item['x'],
+				y : item['y'],
+				z : item['z'],
+				type : item['type'],
+				order : order
+			}];
+		}
+		if (Math.abs(item['x'] - center.x) > this.axisRange) this.axisRange = Math.abs(item['x'] - center.x);
+		if (Math.abs(item['y'] - center.y) > this.axisRange) this.axisRange = Math.abs(item['y'] - center.y);
+		if (Math.abs(item['z'] - center.z) > this.axisRange) this.axisRange = Math.abs(item['z'] - center.z);
+	}
+
+	function compare(a, b) {
+		if (a.order < b.order) {
+			return -1;
+		}
+		if (a.order > b.order) {
+			return 1;
+		}
+		return 0;
+	}
+
+	var xRange = this.axisRange * 2, yRange = this.axisRange * 2;
+	if (yRange < xRange * height / width) yRange = xRange * height / width;
+	if (xRange < yRange * width / height) xRange = yRange * width / height;
+	
+	this.proteinViewer = new ProteinViewer(width, height, DOMObj, -xRange / 2, xRange / 2, -yRange / 2, yRange / 2);
+	this.proteinViewer.execute();
+	var count = 0;
+	for (var key in this.proteinData) {
+		this.proteinData[key].sort(compare);
+		this.proteinViewer.appendProtein(
+			-center.x, -center.y, -center.z, 
+			this.proteinData[key], this.theme[(count++) % this.theme.length],
+			1,
+			this.axisRange / 200,
+			this.axisRange / 45
+		);
+	}
+};
+
 // TODO: Hermite interpolate
 // Assume at least 4 points
 function hermiteInterpolate(data, angleThreshold) {
-	console.log(data);
+	//console.log(data);
 	if (data.length < 4) {
 		// var result = [];
 		// for (var i = 0; i < data.length; i++) {
@@ -466,7 +567,7 @@ function smoothNormalTransition(normals) {
 	}
 	var tmpNormals = normals;
 
-	for (var lp = 0; lp < 50; lp++) {
+	for (var lp = 0; lp < 200; lp++) {
 		normals = tmpNormals;
 		tmpNormals = [normals[0].clone().scale(2).add(normals[1]).normalize()];
 		for (var i = 1; i < normals.length - 1; i++) {
@@ -574,8 +675,8 @@ var LineGeo = function(alongPoints, lineRadius, scale) {
 // 3D Roll Geometry
 var RollGeo = function(alongPoints, thickness, width, scale) {
 	this.alongPoints = alongPoints;
-	console.log("here");
-	console.log(this.alongPoints);
+	//console.log("here");
+	//console.log(this.alongPoints);
 	this.scale;
 	if ("undefined" === typeof scale) {
 		this.scale = 1.0;
@@ -737,20 +838,20 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 			arrLen += alongPoints[i].clone().subtract(alongPoints[i - 1]).len();
 			if (arrLen > this.width * 2) break;
 		}
-		console.log("f");
-		console.log(arrLen);
+		//console.log("f");
+		//console.log(arrLen);
 		var tmpLen = 0;
 		var small = this.thickness / this.width;
 		var big = 1.5;
-		console.log(small);
-		console.log(big);
+		//console.log(small);
+		//console.log(big);
 		for (var i = len - 2; i >= 0; i--) {
 			normRatio[i] = small + tmpLen / arrLen * (big - small);
 			if (tmpLen >= arrLen) break;
 			if (i > 0) tmpLen += alongPoints[i].clone().subtract(alongPoints[i - 1]).len();
 		}
 
-		console.log(normRatio);
+		//console.log(normRatio);
 		
 		// TODO: if short, use arbirary normal direction
 		if (len < 3) return;
