@@ -241,7 +241,6 @@ var ProteinViewer = function(width, height, DOMObj, sceneMinX, sceneMaxX, sceneM
 			for (var i = 0; i < data.length - 1; i++) {
 				framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
 				if (data[i].type != curType || data[i + 1].type == -1) {
-					// console.log(framePointsBuffer);
 					framePointsBuffer.push(new Vec3([data[i + 1].x, data[i + 1].y, data[i + 1].z]));
 					var geoSegment;
 					switch (curType) {
@@ -256,7 +255,6 @@ var ProteinViewer = function(width, height, DOMObj, sceneMinX, sceneMaxX, sceneM
 						break;
 					}
 					geoSegment.execute();
-					//console.log(geoSegment);
 					var geoPoints = geoSegment.geoPoints;
 					var geoPointsNorm = geoSegment.geoPointsNorm;
 					var m = geoPoints[0].length;
@@ -483,37 +481,26 @@ var ProteinViewerWrapper = function(width, height, DOMObj, data) {
 			-center.x, -center.y, -center.z, 
 			this.proteinData[key], this.theme[(count++) % this.theme.length],
 			1,
-			this.axisRange / 200,
+			this.axisRange / 150,
 			this.axisRange / 45
 		);
 	}
 };
 
-// TODO: Hermite interpolate
-// Assume at least 4 points
+// Hermite interpolate
 function hermiteInterpolate(data, angleThreshold) {
-	//console.log(data);
 	if (data.length < 4) {
-		// var result = [];
-		// for (var i = 0; i < data.length; i++) {
-		// 	result.push(data[i]);
-		// }
-		// result.push(data[data.length - 1].clone().scale(2).subtract(data[data.length - 2]));
-		// return result;
 		throw "Should have at least 4 points.";
 	}
-	// First tangent
-	//var tangents = [data[1].clone().subtract(data[0]).normalize()];
+
 	var tangents = [null];
-	// Middle tangent
+
 	for (var i = 1; i < data.length - 1; i++) {
 		tangents.push(data[i + 1].clone().subtract(data[i - 1]).normalize());
 	}
 	if (tangents[tangents.length - 1].len() < 1e-10) {
 		tangents[tangents.length - 1] = tangents[tangents.length - 2].clone();
 	}
-	// Last tangent
-	//tangents.push(data[data.length - 1].clone().subtract(data[data.length - 2]).normalize());
 
 	// TODO: change to recursive, now uniform sampling
 	var result = [];
@@ -540,7 +527,6 @@ function hermiteInterpolate(data, angleThreshold) {
 	}
 	result.push(data[data.length - 2].clone());
 	result.push(result[result.length - 1].clone().scale(2).subtract(result[result.length - 2]));
-	//result.push(data[data.length - 2].clone().scale(2).subtract(data[data.length - 3]));
 
 	return result;
 }
@@ -609,7 +595,6 @@ var LineGeo = function(alongPoints, lineRadius, scale) {
 		for (var i = 0; i < len - 1; i++) {
 			var point = this.alongPoints[i];
 			var point2 = this.alongPoints[i + 1];
-			//console.log(this.alongPoints);
 
 			var cross = [];
 			var crossNorm = [];
@@ -650,11 +635,6 @@ var LineGeo = function(alongPoints, lineRadius, scale) {
 			prevTangent = tangent;
 			curv = normal.cross(tangent);
 
-			// console.log(i);
-			// console.log(tangent);
-			// console.log(normal);
-			// console.log(curv);
-			
 			// TODO: decide the number of slices for the ring, now setting to 10.
 			for (var k = 0; k <= 10; k++) {
 				var angle = Math.PI * 2 / 10 * k;
@@ -667,16 +647,14 @@ var LineGeo = function(alongPoints, lineRadius, scale) {
 			this.geoPoints.push(cross);
 			this.geoPointsNorm.push(crossNorm);
 		}
-		// console.log(this.geoPoints);
-		// console.log(this.geoPointsNorm);
+
 	}
 };
 
 // 3D Roll Geometry
 var RollGeo = function(alongPoints, thickness, width, scale) {
 	this.alongPoints = alongPoints;
-	//console.log("here");
-	//console.log(this.alongPoints);
+
 	this.scale;
 	if ("undefined" === typeof scale) {
 		this.scale = 1.0;
@@ -767,11 +745,6 @@ var RollGeo = function(alongPoints, thickness, width, scale) {
 			tangent = tangents[i];
 			curv = normal.cross(tangent);
 
-			// console.log(i);
-			// console.log(tangent);
-			// console.log(normal);
-			// console.log(curv);
-			
 			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
 			cross.push(point.clone().add(normal.clone().scale(-this.width)).scale(this.scale));
 			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
@@ -791,8 +764,7 @@ var RollGeo = function(alongPoints, thickness, width, scale) {
 			this.geoPoints.push(cross);
 			this.geoPointsNorm.push(crossNorm);
 		}
-		// console.log(this.geoPoints);
-		// console.log(this.geoPointsNorm);
+
 	}
 };
 
@@ -838,21 +810,17 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 			arrLen += alongPoints[i].clone().subtract(alongPoints[i - 1]).len();
 			if (arrLen > this.width * 2) break;
 		}
-		//console.log("f");
-		//console.log(arrLen);
+
 		var tmpLen = 0;
 		var small = this.thickness / this.width;
 		var big = 1.5;
-		//console.log(small);
-		//console.log(big);
+
 		for (var i = len - 2; i >= 0; i--) {
 			normRatio[i] = small + tmpLen / arrLen * (big - small);
 			if (tmpLen >= arrLen) break;
 			if (i > 0) tmpLen += alongPoints[i].clone().subtract(alongPoints[i - 1]).len();
 		}
 
-		//console.log(normRatio);
-		
 		// TODO: if short, use arbirary normal direction
 		if (len < 3) return;
 		var prevNormal, normal, prevTangent, tangent, curv;
@@ -966,8 +934,7 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 			this.geoPoints.push(cross);
 			this.geoPointsNorm.push(crossNorm);
 		}
-		// console.log(this.geoPoints);
-		// console.log(this.geoPointsNorm);
+
 	}
 };
 
