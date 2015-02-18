@@ -727,6 +727,31 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 	this.execute = function() {
 		var len = this.alongPoints.length;
 		
+		// Ratio to draw arrow
+		var normRatio = [];
+		for (var i = 0; i < len; i++) {
+			normRatio.push(1);
+		}
+		var arrLen = 0;
+		for (var i = len - 2; i > 0; i--) {
+			arrLen += alongPoints[i].clone().subtract(alongPoints[i - 1]).len();
+			if (arrLen > this.width * 2) break;
+		}
+		console.log("f");
+		console.log(arrLen);
+		var tmpLen = 0;
+		var small = this.thickness / this.width;
+		var big = 1.5;
+		console.log(small);
+		console.log(big);
+		for (var i = len - 2; i >= 0; i--) {
+			normRatio[i] = small + tmpLen / arrLen * (big - small);
+			if (tmpLen >= arrLen) break;
+			if (i > 0) tmpLen += alongPoints[i].clone().subtract(alongPoints[i - 1]).len();
+		}
+
+		console.log(normRatio);
+		
 		// TODO: if short, use arbirary normal direction
 		if (len < 3) return;
 		var prevNormal, normal, prevTangent, tangent, curv;
@@ -790,16 +815,42 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 			tangent = tangents[i];
 			curv = normal.cross(tangent);
 
-			// TODO: Draw Arrow
-			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));			
-			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+			if (i > 0 && normRatio[i - 1] == 1 && normRatio[i] != 1) {
+				cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+				cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+				cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+				cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));			
+				cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
+				cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
+				cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
+				cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
+				cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+				
+				crossNorm.push(curv.clone());
+				crossNorm.push(normal.clone().scale(-1));
+				crossNorm.push(normal.clone().scale(-1));
+				crossNorm.push(curv.clone().scale(-1));
+				crossNorm.push(curv.clone().scale(-1));
+				crossNorm.push(normal.clone());
+				crossNorm.push(normal.clone());
+				crossNorm.push(curv.clone());
+				crossNorm.push(curv.clone());	
+
+				this.geoPoints.push(cross);
+				this.geoPointsNorm.push(crossNorm);
+				cross = [];
+				crossNorm = [];
+			}
+
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width * normRatio[i])).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width * normRatio[i])).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-this.width * normRatio[i])).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-this.width * normRatio[i])).scale(this.scale));			
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(this.width * normRatio[i])).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(this.width * normRatio[i])).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(this.width * normRatio[i])).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(this.width * normRatio[i])).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width * normRatio[i])).scale(this.scale));
 			
 			crossNorm.push(curv.clone());
 			crossNorm.push(normal.clone().scale(-1));
@@ -810,7 +861,7 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 			crossNorm.push(normal.clone());
 			crossNorm.push(curv.clone());
 			crossNorm.push(curv.clone());
-			
+
 			this.geoPoints.push(cross);
 			this.geoPointsNorm.push(crossNorm);
 		}
