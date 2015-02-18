@@ -223,14 +223,14 @@ var ProteinViewer = function(width, height, DOMObj) {
 				z: data[data.length - 1].z, 
 				type: -1, 
 			});
+
 			var curType = data[0].type;
 			var framePointsBuffer = [new Vec3([data[0].x, data[0].y, data[0].z])];
-			for (var i = 1; i < data.length; i++) {
-				if (data[i].type != -1) {
-					framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
-				}
-				if (data[i].type != curType) {
-					console.log(framePointsBuffer);
+			for (var i = 0; i < data.length - 1; i++) {
+				framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
+				if (data[i].type != curType || data[i + 1].type == -1) {
+					// console.log(framePointsBuffer);
+					framePointsBuffer.push(new Vec3([data[i + 1].x, data[i + 1].y, data[i + 1].z]));
 					var geoSegment;
 					switch (curType) {
 						case 0:
@@ -322,7 +322,10 @@ var ProteinViewer = function(width, height, DOMObj) {
 						}
 					}
 
-					framePointsBuffer = [new Vec3([data[i].x, data[i].y, data[i].z])];
+					framePointsBuffer = [
+						new Vec3([data[i - 1].x, data[i - 1].y, data[i - 1].z]),
+						new Vec3([data[i].x, data[i].y, data[i].z])
+					];
 					curType = data[i].type;
 				}
 			}
@@ -386,28 +389,34 @@ var ProteinViewer = function(width, height, DOMObj) {
 };
 
 // TODO: Hermite interpolate
+// Assume at least 4 points
 function hermiteInterpolate(data, angleThreshold) {
 	console.log(data);
-	if (data.length < 3) {
-		var result = [];
-		for (var i = 0; i < data.length; i++) {
-			result.push(data[i]);
-		}
-		result.push(data[data.length - 1].clone().scale(2).subtract(data[data.length - 2]));
-		return result;
+	if (data.length < 4) {
+		// var result = [];
+		// for (var i = 0; i < data.length; i++) {
+		// 	result.push(data[i]);
+		// }
+		// result.push(data[data.length - 1].clone().scale(2).subtract(data[data.length - 2]));
+		// return result;
+		throw "Should have at least 4 points.";
 	}
 	// First tangent
-	var tangents = [data[1].clone().subtract(data[0]).normalize()];
+	//var tangents = [data[1].clone().subtract(data[0]).normalize()];
+	var tangents = [null];
 	// Middle tangent
 	for (var i = 1; i < data.length - 1; i++) {
 		tangents.push(data[i + 1].clone().subtract(data[i - 1]).normalize());
 	}
+	if (tangents[tangents.length - 1].len() < 1e-10) {
+		tangents[tangents.length - 1] = tangents[tangents.length - 2].clone();
+	}
 	// Last tangent
-	tangents.push(data[data.length - 1].clone().subtract(data[data.length - 2]).normalize());
+	//tangents.push(data[data.length - 1].clone().subtract(data[data.length - 2]).normalize());
 
 	// TODO: change to recursive, now uniform sampling
 	var result = [];
-	for (var i = 0; i < data.length - 1; i++) {
+	for (var i = 1; i < data.length - 2; i++) {
 		for (var lp = 0; lp < 10; lp++) {
 			var t = lp / 10.0;
 			var t2 = t * t;
@@ -428,8 +437,9 @@ function hermiteInterpolate(data, angleThreshold) {
 			);
 		}
 	}
-	result.push(data[data.length - 1].clone());
-	result.push(data[data.length - 1].clone().scale(2).subtract(data[data.length - 2]));
+	result.push(data[data.length - 2].clone());
+	result.push(result[result.length - 1].clone().scale(2).subtract(result[result.length - 2]));
+	//result.push(data[data.length - 2].clone().scale(2).subtract(data[data.length - 3]));
 
 	return result;
 }
@@ -447,7 +457,7 @@ var LineGeo = function(alongPoints, lineRadius, scale) {
 	
 	this.lineRadius;
 	if ("undefined" === typeof lineRadius) {
-		this.lineRadius = 5;
+		this.lineRadius = 1;
 	} else {
 		this.lineRadius = lineRadius;
 	}
@@ -542,14 +552,14 @@ var RollGeo = function(alongPoints, thickness, width, scale) {
 	
 	this.thickness;
 	if ("undefined" === typeof thickness) {
-		this.thickness = 5;
+		this.thickness = 1;
 	} else {
 		this.thickness = thickness;
 	}
 
 	this.width;
 	if ("undefined" === typeof width) {
-		this.width = 30;
+		this.width = 6;
 	} else {
 		this.width = width;
 	}
@@ -649,14 +659,14 @@ var SliceGeo = function(alongPoints, thickness, width, scale) {
 	
 	this.thickness;
 	if ("undefined" === typeof thickness) {
-		this.thickness = 5;
+		this.thickness = 1;
 	} else {
 		this.thickness = thickness;
 	}
 
 	this.width;
 	if ("undefined" === typeof width) {
-		this.width = 30;
+		this.width = 6;
 	} else {
 		this.width = width;
 	}
