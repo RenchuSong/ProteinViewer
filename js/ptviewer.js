@@ -210,6 +210,10 @@ var ProteinViewer = function(width, height, DOMObj) {
 	*/
 	this.appendProtein = function(x, y, z, data, color, scale, lineRadius, planeWidth, angleThreshold) {
 		var geometry = new THREE.Geometry();
+
+		if ("undefined" === typeof angleThreshold) {
+			angleThreshold = 0.015;
+		}
 		
 		// Construct protein geometry
 		if (data.length > 0) {
@@ -219,24 +223,24 @@ var ProteinViewer = function(width, height, DOMObj) {
 				z: data[data.length - 1].z, 
 				type: -1, 
 			});
+
 			var curType = data[0].type;
 			var framePointsBuffer = [new Vec3([data[0].x, data[0].y, data[0].z])];
-			for (var i = 1; i < data.length; i++) {
-				if (data[i].type != -1) {
-					framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
-				}
-				if (data[i].type != curType) {
-					console.log(framePointsBuffer);
+			for (var i = 0; i < data.length - 1; i++) {
+				framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
+				if (data[i].type != curType || data[i + 1].type == -1) {
+					// console.log(framePointsBuffer);
+					framePointsBuffer.push(new Vec3([data[i + 1].x, data[i + 1].y, data[i + 1].z]));
 					var geoSegment;
 					switch (curType) {
 						case 0:
-						geoSegment = new LineGeo(framePointsBuffer, scale, lineRadius, angleThreshold);
+						geoSegment = new LineGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, scale);
 						break;
 						case 1:
-
+						geoSegment = new SliceGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, planeWidth, scale);
 						break;
 						case 2:
-
+						geoSegment = new RollGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, planeWidth, scale);
 						break;
 					}
 					geoSegment.execute();
@@ -261,6 +265,12 @@ var ProteinViewer = function(width, height, DOMObj) {
 					var tan = geoPoints[0][1].clone().subtract(geoPoints[0][0]).cross(
 						geoPoints[0][2].clone().subtract(geoPoints[0][0])
 					);
+					if (tan.len() < 1e-10) {
+						tan = geoPoints[0][2].clone().subtract(geoPoints[0][0]).cross(
+							geoPoints[0][4].clone().subtract(geoPoints[0][0])
+						);
+					}
+
 					for (var j = 1; j < m - 1; j++) {
 						var face = new THREE.Face3(bias, bias + j, bias + j + 1);
 						face.normal.set(tan.x, tan.y, tan.z);
@@ -270,6 +280,11 @@ var ProteinViewer = function(width, height, DOMObj) {
 					tan = geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0]).cross(
 						geoPoints[n - 1][1].clone().subtract(geoPoints[n - 1][0])
 					);
+					if (tan.len() < 1e-10) {
+						tan = geoPoints[n - 1][4].clone().subtract(geoPoints[n - 1][0]).cross(
+							geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0])
+						);
+					}
 					for (var j = 1; j < m - 1; j++) {
 						var face = new THREE.Face3(bias + (n - 1) * m, bias + (n - 1) * m + j + 1, bias + (n - 1) * m + j);
 						face.normal.set(tan.x, tan.y, tan.z);
@@ -307,7 +322,10 @@ var ProteinViewer = function(width, height, DOMObj) {
 						}
 					}
 
-					framePointsBuffer = [new Vec3(data[i].x, data[i].y, data[i].z)];
+					framePointsBuffer = [
+						new Vec3([data[i - 1].x, data[i - 1].y, data[i - 1].z]),
+						new Vec3([data[i].x, data[i].y, data[i].z])
+					];
 					curType = data[i].type;
 				}
 			}
@@ -371,30 +389,36 @@ var ProteinViewer = function(width, height, DOMObj) {
 };
 
 // TODO: Hermite interpolate
+// Assume at least 4 points
 function hermiteInterpolate(data, angleThreshold) {
 	console.log(data);
-	if (data.length < 3) {
-		var result = [];
-		for (var i = 0; i < data.length; i++) {
-			result.push(data[i]);
-		}
-		result.push(data[data.length - 1].clone().scale(2).subtract(data[data.length - 2]));
-		return result;
+	if (data.length < 4) {
+		// var result = [];
+		// for (var i = 0; i < data.length; i++) {
+		// 	result.push(data[i]);
+		// }
+		// result.push(data[data.length - 1].clone().scale(2).subtract(data[data.length - 2]));
+		// return result;
+		throw "Should have at least 4 points.";
 	}
 	// First tangent
-	var tangents = [data[1].clone().subtract(data[0]).normalize()];
+	//var tangents = [data[1].clone().subtract(data[0]).normalize()];
+	var tangents = [null];
 	// Middle tangent
 	for (var i = 1; i < data.length - 1; i++) {
 		tangents.push(data[i + 1].clone().subtract(data[i - 1]).normalize());
 	}
+	if (tangents[tangents.length - 1].len() < 1e-10) {
+		tangents[tangents.length - 1] = tangents[tangents.length - 2].clone();
+	}
 	// Last tangent
-	tangents.push(data[data.length - 1].clone().subtract(data[data.length - 2]).normalize());
+	//tangents.push(data[data.length - 1].clone().subtract(data[data.length - 2]).normalize());
 
 	// TODO: change to recursive, now uniform sampling
 	var result = [];
-	for (var i = 0; i < data.length - 1; i++) {
-		for (var lp = 0; lp < 10; lp++) {
-			var t = lp / 10.0;
+	for (var i = 1; i < data.length - 2; i++) {
+		for (var lp = 0; lp < 5; lp++) {
+			var t = lp / 5.0;
 			var t2 = t * t;
 			var t3 = t * t * t;
 			var s = data[i + 1].clone().subtract(data[i]).len();
@@ -413,13 +437,49 @@ function hermiteInterpolate(data, angleThreshold) {
 			);
 		}
 	}
-	result.push(data[data.length - 1]);
+	result.push(data[data.length - 2].clone());
+	result.push(result[result.length - 1].clone().scale(2).subtract(result[result.length - 2]));
+	//result.push(data[data.length - 2].clone().scale(2).subtract(data[data.length - 3]));
 
 	return result;
 }
 
-var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
-	this.framePoints = framePoints;
+// TODO: hack smoothing normal changes
+function smoothNormalTransition(normals) {
+	var ratio = [];
+	var avg = 0;
+	for (var i = 1; i < normals.length; i++) {
+		var angle = normals[i].angle(normals[i - 1]);
+		avg += angle; 
+		ratio.push(angle);
+	}
+	avg /= normals.length - 1;
+	for (var i = 0; i < normals.length - 1; i++) {
+		if (ratio[i] > 2 * avg) {
+			normals[i + 1] = normals[i].clone();
+		}
+	}
+	for (var i = 1; i < normals.length; i++) {
+		if (normals[i].angle(normals[i - 1]) > Math.PI / 2) {
+			normals[i].scale(-1);
+		}
+	}
+	var tmpNormals = normals;
+
+	for (var lp = 0; lp < 50; lp++) {
+		normals = tmpNormals;
+		tmpNormals = [normals[0].clone().scale(2).add(normals[1]).normalize()];
+		for (var i = 1; i < normals.length - 1; i++) {
+			tmpNormals.push(normals[i].clone().scale(2).add(normals[i - 1]).add(normals[i + 1]).normalize());
+		}
+		tmpNormals.push(normals[normals.length - 1].scale(2).add(normals[normals.length - 2]).normalize());
+	}
+	return tmpNormals;
+}
+
+// 3D Line Geometry
+var LineGeo = function(alongPoints, lineRadius, scale) {
+	this.alongPoints = alongPoints;
 
 	this.scale;
 	if ("undefined" === typeof scale) {
@@ -430,28 +490,15 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 	
 	this.lineRadius;
 	if ("undefined" === typeof lineRadius) {
-		this.lineRadius = 5;
+		this.lineRadius = 1;
 	} else {
 		this.lineRadius = lineRadius;
-	}
-	
-	this.angleThreshold;
-	if ("undefined" === typeof angleThreshold) {
-		this.angleThreshold = 0.015;
-	} else {
-		this.angleThreshold = angleThreshold;
-	}
-
-	this.alongPoints = [];
-	this.interpolate = function() {
-		this.alongPoints = hermiteInterpolate(this.framePoints, this.angleThreshold);
 	}
 
 	// Construct Geometry
 	this.geoPoints = [];
 	this.geoPointsNorm = [];
 	this.execute = function() {
-		this.interpolate();
 		var len = this.alongPoints.length;
 		
 		// TODO: if short, use arbirary normal direction
@@ -461,7 +508,7 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 		for (var i = 0; i < len - 1; i++) {
 			var point = this.alongPoints[i];
 			var point2 = this.alongPoints[i + 1];
-			console.log(this.alongPoints);
+			//console.log(this.alongPoints);
 
 			var cross = [];
 			var crossNorm = [];
@@ -502,10 +549,10 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 			prevTangent = tangent;
 			curv = normal.cross(tangent);
 
-			console.log(i);
-			console.log(tangent);
-			console.log(normal);
-			console.log(curv);
+			// console.log(i);
+			// console.log(tangent);
+			// console.log(normal);
+			// console.log(curv);
 			
 			// TODO: decide the number of slices for the ring, now setting to 10.
 			for (var k = 0; k <= 10; k++) {
@@ -519,8 +566,256 @@ var LineGeo = function(framePoints, scale, lineRadius, angleThreshold) {
 			this.geoPoints.push(cross);
 			this.geoPointsNorm.push(crossNorm);
 		}
-		console.log(this.geoPoints);
-		console.log(this.geoPointsNorm);
+		// console.log(this.geoPoints);
+		// console.log(this.geoPointsNorm);
+	}
+};
+
+// 3D Roll Geometry
+var RollGeo = function(alongPoints, thickness, width, scale) {
+	this.alongPoints = alongPoints;
+	console.log("here");
+	console.log(this.alongPoints);
+	this.scale;
+	if ("undefined" === typeof scale) {
+		this.scale = 1.0;
+	} else {
+		this.scale = scale;
+	}
+	
+	this.thickness;
+	if ("undefined" === typeof thickness) {
+		this.thickness = 1;
+	} else {
+		this.thickness = thickness;
+	}
+
+	this.width;
+	if ("undefined" === typeof width) {
+		this.width = 6;
+	} else {
+		this.width = width;
+	}
+	
+	// Construct Geometry
+	this.geoPoints = [];
+	this.geoPointsNorm = [];
+	this.execute = function() {
+		var len = this.alongPoints.length;
+		
+		// TODO: if short, use arbirary normal direction
+		if (len < 3) return;
+		var prevNormal, normal, prevTangent, tangent, curv;
+		var tangents = [];
+		var normals = [];
+
+		for (var i = 0; i < len - 1; i++) {
+			var point = this.alongPoints[i];
+			var point2 = this.alongPoints[i + 1];
+
+			tangent = point2.clone().subtract(point).normalize();
+			if (tangent.len() < 1e-10) {
+				// TODO: may trigger corner case
+				if ("undefined" === typeof prevTangent) {
+					tangent = new Vec3(0.1, 0.1, 0.1);
+				} else {
+					tangent = prevTangent;
+				}
+			}
+			if (i == len - 2) {
+				normal = prevNormal;
+			} else {
+				var tangent2 = this.alongPoints[i + 2].clone().subtract(point2).normalize();
+				normal = tangent.clone().cross(tangent2).normalize();
+				// Degenerated normal
+				if (normal.len() < 1e-10) {
+					if ("undefined" === typeof prevNormal) {
+						var tmp = tangent.clone();
+						// TODO: Now hack with adding strange biases to avoid degenerate.
+						tmp.x += Math.PI;
+						tmp.y += Math.log(2);
+						tmp.z += (1 + Math.sqrt(5)) / 2;
+						normal = tangent.cross(tmp);
+					} else {
+						normal = prevNormal.clone();
+					}
+					normal.normalize();
+				}
+				// Avoid sudden change in curvation
+				if ("undefined" !== typeof prevNormal && normal.angle(prevNormal) > Math.PI / 2) {
+					normal.scale(-1);
+				}
+			}
+			prevNormal = normal;
+			prevTangent = tangent;
+
+			normals.push(normal.clone());
+			tangents.push(tangent.clone());
+		}
+
+		normals = smoothNormalTransition(normals);
+
+		for (var i = 0; i < len - 1; i++) {
+			var point = this.alongPoints[i];
+			var point2 = this.alongPoints[i + 1];
+
+			var cross = [];
+			var crossNorm = [];
+			
+			normal = normals[i];
+			tangent = tangents[i];
+			curv = normal.cross(tangent);
+
+			// console.log(i);
+			// console.log(tangent);
+			// console.log(normal);
+			// console.log(curv);
+			
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(normal.clone().scale(-this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(normal.clone().scale(this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
+			
+			crossNorm.push(curv.clone());
+			crossNorm.push(normal.clone().scale(-1));
+			crossNorm.push(curv.clone().scale(-1));
+			crossNorm.push(curv.clone().scale(-1));
+			crossNorm.push(normal.clone());
+			crossNorm.push(curv.clone());
+			crossNorm.push(curv.clone());
+			
+			this.geoPoints.push(cross);
+			this.geoPointsNorm.push(crossNorm);
+		}
+		// console.log(this.geoPoints);
+		// console.log(this.geoPointsNorm);
+	}
+};
+
+// 3D Slice Geometry
+var SliceGeo = function(alongPoints, thickness, width, scale) {
+	this.alongPoints = alongPoints;
+
+	this.scale;
+	if ("undefined" === typeof scale) {
+		this.scale = 1.0;
+	} else {
+		this.scale = scale;
+	}
+	
+	this.thickness;
+	if ("undefined" === typeof thickness) {
+		this.thickness = 1;
+	} else {
+		this.thickness = thickness;
+	}
+
+	this.width;
+	if ("undefined" === typeof width) {
+		this.width = 6;
+	} else {
+		this.width = width;
+	}
+	
+	
+	// Construct Geometry
+	this.geoPoints = [];
+	this.geoPointsNorm = [];
+	this.execute = function() {
+		var len = this.alongPoints.length;
+		
+		// TODO: if short, use arbirary normal direction
+		if (len < 3) return;
+		var prevNormal, normal, prevTangent, tangent, curv;
+		var tangents = [];
+		var normals = [];
+
+		for (var i = 0; i < len - 1; i++) {
+			var point = this.alongPoints[i];
+			var point2 = this.alongPoints[i + 1];
+
+			tangent = point2.clone().subtract(point).normalize();
+			if (tangent.len() < 1e-10) {
+				// TODO: may trigger corner case
+				if ("undefined" === typeof prevTangent) {
+					tangent = new Vec3(0.1, 0.1, 0.1);
+				} else {
+					tangent = prevTangent;
+				}
+			}
+			if (i == len - 2) {
+				normal = prevNormal;
+			} else {
+				var tangent2 = this.alongPoints[i + 2].clone().subtract(point2).normalize();
+				normal = tangent.clone().cross(tangent2).normalize();
+				// Degenerated normal
+				if (normal.len() < 1e-10) {
+					if ("undefined" === typeof prevNormal) {
+						var tmp = tangent.clone();
+						// TODO: Now hack with adding strange biases to avoid degenerate.
+						tmp.x += Math.PI;
+						tmp.y += Math.log(2);
+						tmp.z += (1 + Math.sqrt(5)) / 2;
+						normal = tangent.cross(tmp);
+					} else {
+						normal = prevNormal.clone();
+					}
+					normal.normalize();
+				}
+				// Avoid sudden change in curvation
+				if ("undefined" !== typeof prevNormal && normal.angle(prevNormal) > Math.PI / 2) {
+					normal.scale(-1);
+				}
+			}
+			prevNormal = normal;
+			prevTangent = tangent;
+
+			normals.push(normal.clone());
+			tangents.push(tangent.clone());
+		}
+
+		normals = smoothNormalTransition(normals);
+
+		for (var i = 0; i < len - 1; i++) {
+			var point = this.alongPoints[i];
+			var point2 = this.alongPoints[i + 1];
+
+			var cross = [];
+			var crossNorm = [];
+			
+			normal = normals[i];
+			tangent = tangents[i];
+			curv = normal.cross(tangent);
+
+			// TODO: Draw Arrow
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));			
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-this.width)).scale(this.scale));
+			
+			crossNorm.push(curv.clone());
+			crossNorm.push(normal.clone().scale(-1));
+			crossNorm.push(normal.clone().scale(-1));
+			crossNorm.push(curv.clone().scale(-1));
+			crossNorm.push(curv.clone().scale(-1));
+			crossNorm.push(normal.clone());
+			crossNorm.push(normal.clone());
+			crossNorm.push(curv.clone());
+			crossNorm.push(curv.clone());
+			
+			this.geoPoints.push(cross);
+			this.geoPointsNorm.push(crossNorm);
+		}
+		// console.log(this.geoPoints);
+		// console.log(this.geoPointsNorm);
 	}
 };
 
