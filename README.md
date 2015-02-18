@@ -2,6 +2,12 @@
 
 A light weight easy using JavaScript protein display library based on three.js 
 
+Import two JavaScript files in your webpage to use ProteinViewer:
+	
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r70/three.min.js"></script>
+	
+	<script src="http://renchusong.github.io/ProteinViewer/js/ptviewer.js"></script>
+
 See [Demo Page](https://github.com/RenchuSong/ProteinViewer/blob/master/demo.html) as a fast tutorial.
 
 ## ProteinViewerWrapper
