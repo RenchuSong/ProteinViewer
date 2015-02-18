@@ -128,3 +128,7 @@ Rotate the whole scene to the direction of (theta, phi) radians in polar coordin
 #### sceneRotate(rdx, rdy):
 
 Rotate the whole scene in three axes of (rdx, rdy) radians relative to current direction.
+
+# Converting pdb file to json file
+
+See more at [PDB2JSON](https://github.com/RenchuSong/ProteinViewer/tree/master/PDB2JSON)
