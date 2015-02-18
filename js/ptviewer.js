@@ -265,6 +265,12 @@ var ProteinViewer = function(width, height, DOMObj) {
 					var tan = geoPoints[0][1].clone().subtract(geoPoints[0][0]).cross(
 						geoPoints[0][2].clone().subtract(geoPoints[0][0])
 					);
+					if (tan.len() < 1e-10) {
+						tan = geoPoints[0][2].clone().subtract(geoPoints[0][0]).cross(
+							geoPoints[0][4].clone().subtract(geoPoints[0][0])
+						);
+					}
+
 					for (var j = 1; j < m - 1; j++) {
 						var face = new THREE.Face3(bias, bias + j, bias + j + 1);
 						face.normal.set(tan.x, tan.y, tan.z);
@@ -274,6 +280,11 @@ var ProteinViewer = function(width, height, DOMObj) {
 					tan = geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0]).cross(
 						geoPoints[n - 1][1].clone().subtract(geoPoints[n - 1][0])
 					);
+					if (tan.len() < 1e-10) {
+						tan = geoPoints[n - 1][4].clone().subtract(geoPoints[n - 1][0]).cross(
+							geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0])
+						);
+					}
 					for (var j = 1; j < m - 1; j++) {
 						var face = new THREE.Face3(bias + (n - 1) * m, bias + (n - 1) * m + j + 1, bias + (n - 1) * m + j);
 						face.normal.set(tan.x, tan.y, tan.z);
@@ -454,7 +465,7 @@ var LineGeo = function(alongPoints, lineRadius, scale) {
 		for (var i = 0; i < len - 1; i++) {
 			var point = this.alongPoints[i];
 			var point2 = this.alongPoints[i + 1];
-			console.log(this.alongPoints);
+			//console.log(this.alongPoints);
 
 			var cross = [];
 			var crossNorm = [];
@@ -597,9 +608,9 @@ var RollGeo = function(alongPoints, thickness, width, scale) {
 			curv = normal.cross(tangent);
 
 			// console.log(i);
-			console.log(tangent);
-			console.log(normal);
-			console.log(curv);
+			// console.log(tangent);
+			// console.log(normal);
+			// console.log(curv);
 			
 			cross.push(point.clone().add(normal.clone().scale(this.thickness)).add(curv.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
 			cross.push(point.clone().add(curv.clone().scale(this.width)).scale(this.scale));
