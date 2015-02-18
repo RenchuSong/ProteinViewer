@@ -1,5 +1,7 @@
 # ProteinViewer
 
+A light weight easy using JavaScript protein display library based on three.js 
+
 ## ProteinViewerWrapper
 
 The wrapper class to load json data and append proteins according to their format.
@@ -39,5 +41,53 @@ Json data format:
 
 #### ProteinViewerWrapper(width, height, DOMObj, data):
 
-Append a canvas to DOMObj, with width and height specified. data is a json object following the format above.
+Append a protein viewing canvas to DOMObj, with width and height specified. data is a json object following the format above.
 
+
+## ProteinViewer
+
+Customizable protein viewing class.
+
+### API:
+
+##### ProteinViewer(width, height, DOMObj, [sceneMinX, sceneMaxX, sceneMinY, sceneMaxY]):
+
+Append an empty protein viewing canvas to DOMObj, with width and height specified. Optional parameters can specify the range of camera, default to [-width / 2, width / 2] * [-height / 2, height / 2].
+
+#### appendProtein(x, y, z, data, [color, scale, lineRadius, planeWidth]):
+
+Append a protein to the canvas. 
+
+x, y, z specifies the center location of the protein.
+
+data follows the following format:
+
+	[
+	
+		{"x" : -12.7110, "y" : -76.6390, "z" : 20.3000, "type" : 0},
+	
+		{"x" : -14.6360, "y" : -73.3960, "z" : 19.7790, "type" : 0},
+	
+		{"x" : -15.7110, "y" : -70.6390, "z" : 18.3000, "type" : 1},
+	
+		{"x" : -16.6360, "y" : -68.3960, "z" : 17.7790, "type" : 1},
+	
+		...
+	
+	]
+
+color is a hex number, e.g, 0xff0000
+
+scale is used to scaling the protein proportionally.
+
+lineRadius defines the radius of line and thickness of slice / roll. Default to 1.0.
+
+planeWidth defines the width of the slice / roll. Default to 6.0.
+
+#### hideProtein(index):
+
+Hide the index_{th} added protein.
+
+#### showProtein(index):
+
+Show the index_{th} added protein.
