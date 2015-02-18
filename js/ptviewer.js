@@ -612,21 +612,21 @@ var RollGeo = function(alongPoints, thickness, width, scale) {
 			// console.log(normal);
 			// console.log(curv);
 			
-			cross.push(point.clone().add(normal.clone().scale(this.thickness)).add(curv.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(this.width)).scale(this.scale));
-			cross.push(point.clone().add(normal.clone().scale(-this.thickness)).add(curv.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
-			cross.push(point.clone().add(normal.clone().scale(-this.thickness)).add(curv.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(-this.width)).scale(this.scale));
-			cross.push(point.clone().add(normal.clone().scale(this.thickness)).add(curv.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
-			cross.push(point.clone().add(normal.clone().scale(this.thickness)).add(curv.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(normal.clone().scale(-this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(normal.clone().scale(this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
 			
-			crossNorm.push(normal.clone());
 			crossNorm.push(curv.clone());
 			crossNorm.push(normal.clone().scale(-1));
-			crossNorm.push(normal.clone().scale(-1));
+			crossNorm.push(curv.clone().scale(-1));
 			crossNorm.push(curv.clone().scale(-1));
 			crossNorm.push(normal.clone());
-			crossNorm.push(normal.clone());
+			crossNorm.push(curv.clone());
+			crossNorm.push(curv.clone());
 			
 			this.geoPoints.push(cross);
 			this.geoPointsNorm.push(crossNorm);
