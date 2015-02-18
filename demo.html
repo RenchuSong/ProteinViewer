@@ -9,7 +9,7 @@
 	<body>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r70/three.min.js"></script>
 		<script src="http://renchusong.github.io/ProteinViewer/js/ptviewer.js"></script>
-		<script src="./demo_data.js"></script>
+		<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
 		<div id="container">
 			<script>
 				/**
@@ -33,10 +33,13 @@
 				// 	4
 				// );
 
-				var wrapper = new ProteinViewerWrapper(800, 600, document.getElementById("container"), demoData);
+				$.getJSON("./demo_data.json", function(demoData) {
+				    var wrapper = new ProteinViewerWrapper(800, 600, document.getElementById("container"), demoData);
 
-				// Can customize via ProteinViewer APIs
-				var ptviewer = wrapper.proteinViewer;
+					// Can customize via ProteinViewer APIs
+					var ptviewer = wrapper.proteinViewer;
+				});
+
 			</script>
 			
 		</div>
