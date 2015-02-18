@@ -91,3 +91,31 @@ Hide the index_{th} added protein.
 #### showProtein(index):
 
 Show the index_{th} added protein.
+
+#### changeProteinColor(index, newColor):
+
+Change the index_{th} protein's color to newColor (hex value).
+
+#### moveProteinTo(index, x, y, z):
+
+Move the index_{th} protein to new location (x, y, z)
+
+#### moveProtein(index, dx, dy, dz):
+
+Move the index_{th} protein by (dx, dy, dz)
+
+#### rotateProteinTo(index, rx, ry, rz):
+
+Rotate the index_{th} protein to the direction of (rx, ry, rz) radians in three axes.
+
+#### rotateProtein(index, rdx, rdy, rdz):
+
+Rotate the index_{th} protein in three axes of (rx, ry, rz) radians.
+
+#### sceneRotateTo(theta, phi):
+
+Rotate the whole scene to the direction of (theta, phi) radians in polar coordinate system.
+
+#### sceneRotate(rdx, rdy):
+
+Rotate the whole scene in three axes of (rdx, rdy) radians relative to current direction.
