@@ -8,7 +8,8 @@ Import two JavaScript files in your webpage to use ProteinViewer:
 	
 	<script src="http://renchusong.github.io/ProteinViewer/js/ptviewer.js"></script>
 
-See [Demo Page](https://github.com/RenchuSong/ProteinViewer/blob/master/demo.html) as a fast tutorial.
+See [Demo Code](https://github.com/RenchuSong/ProteinViewer/blob/master/demo.html) as a fast tutorial.
+Visit [Online Demo Page](https://renchusong.github.io/ProteinViewer/demo.html) to get an intuition about ProteinViewer.
 
 ## ProteinViewerWrapper
 
