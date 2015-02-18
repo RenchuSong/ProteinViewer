@@ -747,13 +747,13 @@ var RollGeo = function(alongPoints, thickness, width, scale) {
 			tangent = tangents[i];
 			curv = normal.cross(tangent);
 
-			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 6 * this.width)).scale(this.scale));
 			cross.push(point.clone().add(normal.clone().scale(-this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(-2.0 / 6 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(-this.thickness)).add(normal.clone().scale(2.0 / 6 * this.width)).scale(this.scale));
 			cross.push(point.clone().add(normal.clone().scale(this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(2.0 / 3 * this.width)).scale(this.scale));
-			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 3 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(2.0 / 6 * this.width)).scale(this.scale));
+			cross.push(point.clone().add(curv.clone().scale(this.thickness)).add(normal.clone().scale(-2.0 / 6 * this.width)).scale(this.scale));
 			
 			crossNorm.push(curv.clone());
 			crossNorm.push(normal.clone().scale(-1));
