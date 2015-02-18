@@ -555,11 +555,13 @@ function smoothNormalTransition(normals) {
 
 	for (var lp = 0; lp < 200; lp++) {
 		normals = tmpNormals;
-		tmpNormals = [normals[0].clone().scale(2).add(normals[1]).normalize()];
+		//tmpNormals = [normals[0].clone().scale(2).add(normals[1]).normalize()];
+		tmpNormals = [normals[0].clone()];
 		for (var i = 1; i < normals.length - 1; i++) {
 			tmpNormals.push(normals[i].clone().scale(2).add(normals[i - 1]).add(normals[i + 1]).normalize());
 		}
-		tmpNormals.push(normals[normals.length - 1].scale(2).add(normals[normals.length - 2]).normalize());
+		//tmpNormals.push(normals[normals.length - 1].scale(2).add(normals[normals.length - 2]).normalize());
+		tmpNormals.push(normals[normals.length - 1]);
 	}
 	return tmpNormals;
 }
