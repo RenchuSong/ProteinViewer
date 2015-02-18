@@ -2,7 +2,7 @@
 
 A light weight easy using JavaScript protein display library based on three.js 
 
-See (Demo Page](https://github.com/RenchuSong/ProteinViewer/blob/master/demo.html) as a fast tutorial.
+See [Demo Page](https://github.com/RenchuSong/ProteinViewer/blob/master/demo.html) as a fast tutorial.
 
 ## ProteinViewerWrapper
 
