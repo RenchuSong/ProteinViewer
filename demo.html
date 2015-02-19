@@ -32,12 +32,13 @@
 				// 	0x00ff00,
 				// 	4
 				// );
-
+				var wrapper;
+				var ptviewer;
 				$.getJSON("./demo_data.json", function(demoData) {
-				    var wrapper = new ProteinViewerWrapper(800, 600, document.getElementById("container"), demoData);
+				    wrapper = new ProteinViewerWrapper(800, 600, document.getElementById("container"), demoData);
 
 					// Can customize via ProteinViewer APIs
-					var ptviewer = wrapper.proteinViewer;
+					ptviewer = wrapper.proteinViewer;
 				});
 
 			</script>
