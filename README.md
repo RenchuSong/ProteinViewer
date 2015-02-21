@@ -131,4 +131,6 @@ Rotate the whole scene in three axes of (rdx, rdy) radians relative to current d
 
 # Converting pdb file to json file
 
+Supporting pdb format is our future work. Currently we provide a tool to convert pdb file to json file.
+
 See more at [PDB2JSON](https://github.com/RenchuSong/ProteinViewer/tree/master/PDB2JSON)
