@@ -56,7 +56,7 @@ lineRadius specifies the radius of line geometry
 
 planeWidth specifies the width of slice / roll
 
-splitThreshold spefifies the distance above which to be considered as non-connected segments within one protein
+splitThreshold specifies the distance above which to be considered as non-connected segments within one protein
 
 ## ProteinViewer
 
