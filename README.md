@@ -48,10 +48,15 @@ Json data format:
 
 ### API:
 
-#### ProteinViewerWrapper(width, height, DOMObj, data):
+#### ProteinViewerWrapper(width, height, DOMObj, data, [lineRadius, planeWidth, splitThreshold]):
 
 Append a protein viewing canvas to DOMObj, with width and height specified. data is a json object following the format above.
 
+lineRadius specifies the radius of line geometry
+
+planeWidth specifies the width of slice / roll
+
+splitThreshold spefifies the distance above which to be considered as non-connected segments within one protein
 
 ## ProteinViewer
 
