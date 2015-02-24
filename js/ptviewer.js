@@ -416,8 +416,10 @@ var ProteinViewer = function(width, height, DOMObj, sceneMinX, sceneMaxX, sceneM
 
 	type: 0 line 1 slice 2 roll
 	ID: protein id + order
+
+
 */
-var ProteinViewerWrapper = function(width, height, DOMObj, data) {
+var ProteinViewerWrapper = function(width, height, DOMObj, data, lineRadius, planeWidth) {
 
 	this.theme = [ 0xff0000, 0x00ff00, 0x0000ff, 0xff00ff, 0xffff00, 0x00ffff, 0xffffff ];
 	
@@ -472,6 +474,13 @@ var ProteinViewerWrapper = function(width, height, DOMObj, data) {
 	if (yRange < xRange * height / width) yRange = xRange * height / width;
 	if (xRange < yRange * width / height) xRange = yRange * width / height;
 	
+	if ("undefined" === typeof lineRadius) {
+		lineRadius = this.axisRange / 150;
+	}
+	if ("undefined" === typeof planeWidth) {
+		planeWidth = this.axisRange / 45;
+	}
+
 	this.proteinViewer = new ProteinViewer(width, height, DOMObj, -xRange / 2, xRange / 2, -yRange / 2, yRange / 2);
 	this.proteinViewer.execute();
 	var count = 0;
@@ -481,8 +490,8 @@ var ProteinViewerWrapper = function(width, height, DOMObj, data) {
 			-center.x, -center.y, -center.z, 
 			this.proteinData[key], this.theme[(count++) % this.theme.length],
 			1,
-			this.axisRange / 150,
-			this.axisRange / 45
+			lineRadius,
+			planeWidth
 		);
 	}
 };
