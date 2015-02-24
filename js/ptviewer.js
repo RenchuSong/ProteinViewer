@@ -221,7 +221,7 @@ var ProteinViewer = function(width, height, DOMObj, sceneMinX, sceneMaxX, sceneM
 		splitThreshold: two points further than this distance will be treated as two segments, default +oo
 		angleThreshold: directional smooth parameter, the less the threshold, the smoother the surface 
 	*/
-	this.appendProtein = function(x, y, z, data, color, scale, lineRadius, planeWidth, splitThreshold, angleThreshold) {
+	this.appendProtein = function(x, y, z, datum, color, scale, lineRadius, planeWidth, splitThreshold, angleThreshold) {
 		var geometry = new THREE.Geometry();
 
 		if ("undefined" === typeof angleThreshold) {
@@ -231,132 +231,146 @@ var ProteinViewer = function(width, height, DOMObj, sceneMinX, sceneMaxX, sceneM
 		if ("undefined" === typeof splitThreshold) {
 			splitThreshold = 1e200;
 		}
-		
-		// Construct protein geometry
-		if (data.length > 1) {
-			data.push({ 
-				x: data[data.length - 1].x, 
-				y: data[data.length - 1].y, 
-				z: data[data.length - 1].z, 
-				type: -1, 
-			});
 
-			var curType = data[0].type;
-			var framePointsBuffer = [new Vec3([data[0].x, data[0].y, data[0].z])];
-			for (var i = 0; i < data.length - 1; i++) {
-				framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
-				if (data[i].type != curType || data[i + 1].type == -1) {
-					framePointsBuffer.push(new Vec3([data[i + 1].x, data[i + 1].y, data[i + 1].z]));
-					var geoSegment;
-					switch (curType) {
-						case 0:
-						geoSegment = new LineGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, scale);
-						break;
-						case 1:
-						geoSegment = new SliceGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, planeWidth, scale);
-						break;
-						case 2:
-						geoSegment = new RollGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, planeWidth, scale);
-						break;
-					}
-					geoSegment.execute();
-					var geoPoints = geoSegment.geoPoints;
-					var geoPointsNorm = geoSegment.geoPointsNorm;
-					var m = geoPoints[0].length;
-					var n = geoPoints.length;
-					// #Points already in geometry 
-					var bias = geometry.vertices.length;
-					
-					for (var j = 0; j < n; j++) {
-						for (var k = 0; k < m; k++) {
-							geometry.vertices.push(
-								new THREE.Vector3( 
-									geoPoints[j][k].x, geoPoints[j][k].y, geoPoints[j][k].z
-								)
+		datum.push({
+			x : 1e200,
+			y : 1e200,
+			z : 1e200
+		});
+		var data = [datum[0]];
+		for (var scan = 1; scan < datum.length; scan++) {
+			if (new Vec3([datum[scan - 1].x, datum[scan - 1].y, datum[scan - 1].z]).subtract(
+				new Vec3([datum[scan].x, datum[scan].y, datum[scan].z])).len() > splitThreshold) {
+				// Construct protein geometry
+				if (data.length > 1) {
+					data.push({ 
+						x: data[data.length - 1].x, 
+						y: data[data.length - 1].y, 
+						z: data[data.length - 1].z, 
+						type: -1, 
+					});
+
+					var curType = data[0].type;
+					var framePointsBuffer = [new Vec3([data[0].x, data[0].y, data[0].z])];
+					for (var i = 0; i < data.length - 1; i++) {
+						framePointsBuffer.push(new Vec3([data[i].x, data[i].y, data[i].z]));
+						if (data[i].type != curType || data[i + 1].type == -1) {
+							framePointsBuffer.push(new Vec3([data[i + 1].x, data[i + 1].y, data[i + 1].z]));
+							var geoSegment;
+							switch (curType) {
+								case 0:
+								geoSegment = new LineGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, scale);
+								break;
+								case 1:
+								geoSegment = new SliceGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, planeWidth, scale);
+								break;
+								case 2:
+								geoSegment = new RollGeo(hermiteInterpolate(framePointsBuffer, angleThreshold), lineRadius, planeWidth, scale);
+								break;
+							}
+							geoSegment.execute();
+							var geoPoints = geoSegment.geoPoints;
+							var geoPointsNorm = geoSegment.geoPointsNorm;
+							var m = geoPoints[0].length;
+							var n = geoPoints.length;
+							// #Points already in geometry 
+							var bias = geometry.vertices.length;
+							
+							for (var j = 0; j < n; j++) {
+								for (var k = 0; k < m; k++) {
+									geometry.vertices.push(
+										new THREE.Vector3( 
+											geoPoints[j][k].x, geoPoints[j][k].y, geoPoints[j][k].z
+										)
+									);
+								}
+							}
+
+							// Bottom Cap
+							var tan = geoPoints[0][1].clone().subtract(geoPoints[0][0]).cross(
+								geoPoints[0][2].clone().subtract(geoPoints[0][0])
 							);
-						}
-					}
+							if (tan.len() < 1e-10) {
+								tan = geoPoints[0][2].clone().subtract(geoPoints[0][0]).cross(
+									geoPoints[0][4].clone().subtract(geoPoints[0][0])
+								);
+							}
 
-					if (new Vec3([data[i].x, data[i].y, data[i].z]).subtract(new Vec3([data[i + 1].x, data[i + 1].y, data[i + 1].z])).len() <= splitThreshold) {
-						// Bottom Cap
-						var tan = geoPoints[0][1].clone().subtract(geoPoints[0][0]).cross(
-							geoPoints[0][2].clone().subtract(geoPoints[0][0])
-						);
-						if (tan.len() < 1e-10) {
-							tan = geoPoints[0][2].clone().subtract(geoPoints[0][0]).cross(
-								geoPoints[0][4].clone().subtract(geoPoints[0][0])
-							);
-						}
-
-						for (var j = 1; j < m - 1; j++) {
-							var face = new THREE.Face3(bias, bias + j, bias + j + 1);
-							face.normal.set(tan.x, tan.y, tan.z);
-							geometry.faces.push(face);
-						}
-						// Top Cap
-						tan = geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0]).cross(
-							geoPoints[n - 1][1].clone().subtract(geoPoints[n - 1][0])
-						);
-						if (tan.len() < 1e-10) {
-							tan = geoPoints[n - 1][4].clone().subtract(geoPoints[n - 1][0]).cross(
-								geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0])
-							);
-						}
-						for (var j = 1; j < m - 1; j++) {
-							var face = new THREE.Face3(bias + (n - 1) * m, bias + (n - 1) * m + j + 1, bias + (n - 1) * m + j);
-							face.normal.set(tan.x, tan.y, tan.z);
-							geometry.faces.push(face);
-						}
-
-						// Soft Tube
-						for (var j = 0; j < n - 1; j++) {
-							for (var k = 0; k < m - 1; k++) {
-								var base = j * m + k + bias;
-								// First triangle
-								var face = new THREE.Face3(base + 1, base, base + m);
-								face.vertexNormals[0] = new THREE.Vector3( 
-									geoPointsNorm[j][k + 1].x, geoPointsNorm[j][k + 1].y, geoPointsNorm[j][k + 1].z
-								);
-								face.vertexNormals[1] = new THREE.Vector3( 
-									geoPointsNorm[j][k].x, geoPointsNorm[j][k].y, geoPointsNorm[j][k].z
-								);
-								face.vertexNormals[2] = new THREE.Vector3( 
-									geoPointsNorm[j + 1][k].x, geoPointsNorm[j + 1][k].y, geoPointsNorm[j + 1][k].z
-								);
-								geometry.faces.push(face);
-								// Second triangle
-								face = new THREE.Face3(base + 1, base + m, base + m + 1);
-								face.vertexNormals[0] = new THREE.Vector3( 
-									geoPointsNorm[j][k + 1].x, geoPointsNorm[j][k + 1].y, geoPointsNorm[j][k + 1].z
-								);
-								face.vertexNormals[1] = new THREE.Vector3( 
-									geoPointsNorm[j + 1][k].x, geoPointsNorm[j + 1][k].y, geoPointsNorm[j + 1][k].z
-								);
-								face.vertexNormals[2] = new THREE.Vector3( 
-									geoPointsNorm[j + 1][k + 1].x, geoPointsNorm[j + 1][k + 1].y, geoPointsNorm[j + 1][k + 1].z
-								);
+							for (var j = 1; j < m - 1; j++) {
+								var face = new THREE.Face3(bias, bias + j, bias + j + 1);
+								face.normal.set(tan.x, tan.y, tan.z);
 								geometry.faces.push(face);
 							}
+							// Top Cap
+							tan = geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0]).cross(
+								geoPoints[n - 1][1].clone().subtract(geoPoints[n - 1][0])
+							);
+							if (tan.len() < 1e-10) {
+								tan = geoPoints[n - 1][4].clone().subtract(geoPoints[n - 1][0]).cross(
+									geoPoints[n - 1][2].clone().subtract(geoPoints[n - 1][0])
+								);
+							}
+							for (var j = 1; j < m - 1; j++) {
+								var face = new THREE.Face3(bias + (n - 1) * m, bias + (n - 1) * m + j + 1, bias + (n - 1) * m + j);
+								face.normal.set(tan.x, tan.y, tan.z);
+								geometry.faces.push(face);
+							}
+
+							// Soft Tube
+							for (var j = 0; j < n - 1; j++) {
+								for (var k = 0; k < m - 1; k++) {
+									var base = j * m + k + bias;
+									// First triangle
+									var face = new THREE.Face3(base + 1, base, base + m);
+									face.vertexNormals[0] = new THREE.Vector3( 
+										geoPointsNorm[j][k + 1].x, geoPointsNorm[j][k + 1].y, geoPointsNorm[j][k + 1].z
+									);
+									face.vertexNormals[1] = new THREE.Vector3( 
+										geoPointsNorm[j][k].x, geoPointsNorm[j][k].y, geoPointsNorm[j][k].z
+									);
+									face.vertexNormals[2] = new THREE.Vector3( 
+										geoPointsNorm[j + 1][k].x, geoPointsNorm[j + 1][k].y, geoPointsNorm[j + 1][k].z
+									);
+									geometry.faces.push(face);
+									// Second triangle
+									face = new THREE.Face3(base + 1, base + m, base + m + 1);
+									face.vertexNormals[0] = new THREE.Vector3( 
+										geoPointsNorm[j][k + 1].x, geoPointsNorm[j][k + 1].y, geoPointsNorm[j][k + 1].z
+									);
+									face.vertexNormals[1] = new THREE.Vector3( 
+										geoPointsNorm[j + 1][k].x, geoPointsNorm[j + 1][k].y, geoPointsNorm[j + 1][k].z
+									);
+									face.vertexNormals[2] = new THREE.Vector3( 
+										geoPointsNorm[j + 1][k + 1].x, geoPointsNorm[j + 1][k + 1].y, geoPointsNorm[j + 1][k + 1].z
+									);
+									geometry.faces.push(face);
+								}
+							}
+
+							framePointsBuffer = [
+								new Vec3([data[i - 1].x, data[i - 1].y, data[i - 1].z]),
+								new Vec3([data[i].x, data[i].y, data[i].z])
+							];
+							curType = data[i].type;
 						}
 					}
-
-					framePointsBuffer = [
-						new Vec3([data[i - 1].x, data[i - 1].y, data[i - 1].z]),
-						new Vec3([data[i].x, data[i].y, data[i].z])
-					];
-					curType = data[i].type;
 				}
+
+				var material = new THREE.MeshLambertMaterial( { color: color, shading: THREE.SmoothShading } );
+				var protein = new THREE.Mesh( geometry, material );
+				protein.position.x = x;
+				protein.position.y = y;
+				protein.position.z = z;
+				
+				this.scene.add(protein);
+				this.protein.push(protein);
+
+				data = [];
 			}
+			
+			data.push(datum[scan]);
 		}
 
-		var material = new THREE.MeshLambertMaterial( { color: color, shading: THREE.SmoothShading } );
-		var protein = new THREE.Mesh( geometry, material );
-		protein.position.x = x;
-		protein.position.y = y;
-		protein.position.z = z;
-		
-		this.scene.add(protein);
-		this.protein.push(protein);
 	}
 
 	// Hide a protein
@@ -427,7 +441,7 @@ var ProteinViewer = function(width, height, DOMObj, sceneMinX, sceneMaxX, sceneM
 
 
 */
-var ProteinViewerWrapper = function(width, height, DOMObj, data, lineRadius, planeWidth) {
+var ProteinViewerWrapper = function(width, height, DOMObj, data, lineRadius, planeWidth, splitThreshold) {
 
 	this.theme = [ 0xff0000, 0x00ff00, 0x0000ff, 0xff00ff, 0xffff00, 0x00ffff, 0xffffff ];
 	
@@ -489,6 +503,10 @@ var ProteinViewerWrapper = function(width, height, DOMObj, data, lineRadius, pla
 		planeWidth = this.axisRange / 45;
 	}
 
+	if ("undefined" === typeof splitThreshold) {
+		splitThreshold = 10;
+	}
+
 	this.proteinViewer = new ProteinViewer(width, height, DOMObj, -xRange / 2, xRange / 2, -yRange / 2, yRange / 2);
 	this.proteinViewer.execute();
 	var count = 0;
@@ -499,7 +517,8 @@ var ProteinViewerWrapper = function(width, height, DOMObj, data, lineRadius, pla
 			this.proteinData[key], this.theme[(count++) % this.theme.length],
 			1,
 			lineRadius,
-			planeWidth
+			planeWidth,
+			splitThreshold
 		);
 	}
 };
